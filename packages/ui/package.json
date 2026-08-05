@@ -4,8 +4,16 @@
   "private": true,
   "description": "Shared presentational components.",
   "main": "./src/index.js",
-  "exports": { ".": "./src/index.js" },
+  "exports": {
+    ".": "./src/index.js"
+  },
   "sideEffects": false,
-  "dependencies": { "@cocarr/theme": "1.0.0", "@cocarr/icons": "1.0.0" },
-  "peerDependencies": { "react": ">=18" }
+  "peerDependencies": {
+    "react": ">=18",
+    "react-icons": ">=5",
+    "lucide-react": ">=0.4"
+  },
+  "dependencies": {
+    "@cocarr/shared-utils": "1.0.0"
+  }
 }

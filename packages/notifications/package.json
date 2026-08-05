@@ -4,8 +4,12 @@
   "private": true,
   "description": "Toasts and in-app notification surfaces.",
   "main": "./src/index.js",
-  "exports": { ".": "./src/index.js" },
+  "exports": {
+    ".": "./src/index.js"
+  },
   "sideEffects": false,
-  "dependencies": { "@cocarr/ui": "1.0.0" },
-  "peerDependencies": { "react": ">=18" }
+  "peerDependencies": {
+    "react": ">=18",
+    "react-toastify": ">=10"
+  }
 }

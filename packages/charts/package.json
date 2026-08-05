@@ -4,8 +4,12 @@
   "private": true,
   "description": "Chart wrappers with the platform palette applied.",
   "main": "./src/index.js",
-  "exports": { ".": "./src/index.js" },
+  "exports": {
+    ".": "./src/index.js"
+  },
   "sideEffects": false,
-  "dependencies": { "@cocarr/theme": "1.0.0" },
-  "peerDependencies": { "react": ">=18", "chart.js": ">=4" }
+  "peerDependencies": {
+    "react": ">=18",
+    "chart.js": ">=4"
+  }
 }

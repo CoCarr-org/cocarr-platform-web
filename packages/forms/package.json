@@ -4,8 +4,12 @@
   "private": true,
   "description": "Form controls and validation wiring.",
   "main": "./src/index.js",
-  "exports": { ".": "./src/index.js" },
+  "exports": {
+    ".": "./src/index.js"
+  },
   "sideEffects": false,
-  "dependencies": { "@cocarr/ui": "1.0.0" },
-  "peerDependencies": { "react": ">=18", "react-hook-form": ">=7" }
+  "peerDependencies": {
+    "react": ">=18",
+    "react-hook-form": ">=7"
+  }
 }

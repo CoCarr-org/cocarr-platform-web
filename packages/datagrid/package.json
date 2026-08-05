@@ -4,8 +4,20 @@
   "private": true,
   "description": "Table, pagination, search and the resource manager.",
   "main": "./src/index.js",
-  "exports": { ".": "./src/index.js" },
+  "exports": {
+    ".": "./src/index.js"
+  },
   "sideEffects": false,
-  "dependencies": { "@cocarr/ui": "1.0.0" },
-  "peerDependencies": { "react": ">=18", "@tanstack/react-table": ">=8" }
+  "dependencies": {
+    "@cocarr/ui": "1.0.0",
+    "@cocarr/forms": "1.0.0",
+    "@cocarr/api-sdk": "1.0.0",
+    "@cocarr/iam-sdk": "1.0.0",
+    "@cocarr/notifications": "1.0.0",
+    "@cocarr/shared-utils": "1.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "@tanstack/react-table": ">=8"
+  }
 }

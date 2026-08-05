@@ -28,6 +28,39 @@ Nothing below is blocked on a decision. It is blocked on a working build.
 | `apps/*` | Manifests, `next.config.mjs` (with `transpilePackages` — workspace packages ship as source), and a dashboard layout each. |
 | `@cocarr/theme` `ui` `forms` `datagrid` `charts` `icons` `shared-hooks` `shared-types` `notifications` | Manifests and dependency graph only. Their content is the move below. |
 
+## Progress
+
+**workspace-web is DONE** — the first app migrated end to end, chosen because it
+is the smallest (6 routes) and therefore the cheapest place to get the pattern
+wrong. It builds, renders against a live navigation payload, and its Add / Edit /
+Delete controls appear and disappear with the caller's permissions.
+
+Moved so far (copied, not cut — `src/` stays working until the end):
+
+| Package | Components |
+|---|---|
+| `@cocarr/ui` | `Popup`, `Header`, `Pagination` |
+| `@cocarr/forms` | `Input`, `Select` |
+| `@cocarr/datagrid` | `DataTable`, `ResourceManager`, `ListScreen` |
+| `@cocarr/notifications` | `toasters` |
+
+`ListScreen` is the old catch-all router's `ListPage`, lifted out: page chrome
+plus the resource table, so a route file is a config rather than a copy of the
+same twenty lines.
+
+**Pagination lives in `ui`, not `datagrid`.** `Header` uses it, and `datagrid`
+already depends on `ui` — putting it in `datagrid` made the two packages import
+each other. A cycle in a workspace graph is not a style question; it breaks
+resolution.
+
+**`ResourceManager` changed shape.** It took `module` + `can(module, action)`;
+it now takes `permission` (a base key like `workspace.employees`) and derives
+the controls from `<permission>.create|update|delete`. It also takes `api` as a
+SERVICE NAME (`core` / `workspace` / `platform`) instead of importing two axios
+instances, so a screen never holds a base URL.
+
+Remaining: the other two apps, on exactly this pattern.
+
 ## Step 1 — components out of `src/app/_components` (41 files)
 
 | Target | Files |
