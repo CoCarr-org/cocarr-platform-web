@@ -22,7 +22,10 @@
     "dev:legacy": "next dev",
     "build:legacy": "next build",
     "start:legacy": "next start",
-    "lint:legacy": "next lint"
+    "lint:legacy": "next lint",
+    "start:admin": "npm run start --workspace=@cocarr/admin-web",
+    "start:workspace": "npm run start --workspace=@cocarr/workspace-web",
+    "start:operations": "npm run start --workspace=@cocarr/operations-web"
   },
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^41.4.2",
