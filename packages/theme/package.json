@@ -4,6 +4,9 @@
   "private": true,
   "description": "Design tokens and the shared Tailwind preset.",
   "main": "./src/index.js",
-  "exports": { ".": "./src/index.js" },
+  "exports": {
+    ".": "./src/index.js",
+    "./theme.css": "./src/theme.css"
+  },
   "sideEffects": false
 }

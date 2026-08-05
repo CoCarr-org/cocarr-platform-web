@@ -144,6 +144,11 @@ follow their parent section. They are the reason `canOpenRoute` must answer
 > `if` silently ships the root-only screens — a correct mechanism guarded by a
 > footgun. Separate deployments make the guarantee structural instead.
 
+> **Expected until step 2 lands:** `/dashboard` sends a person to the first
+> screen their permissions allow, and for most roles that route has no page file
+> in the new apps yet, so it 404s. That is the redirect working, not a bug — the
+> destination arrives with the page move.
+
 ## Step 4 — verification, once a build can run
 
 1. `npm install` at the root; `npx turbo run build` — all three apps.

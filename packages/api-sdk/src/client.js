@@ -33,13 +33,30 @@ export function createClient(service) {
   const instance = axios.create({ baseURL: baseUrlFor(service) });
 
   instance.interceptors.request.use(async (config) => {
-    // Waits for Firebase to restore the session — see auth-sdk. Without this,
-    // anything fired during the restore window goes out unauthenticated.
-    const token = await getIdToken();
-    // `Bearer ` prefix, which the old client omitted. Every service accepts a
-    // bare token for backwards compatibility, but the gateway and the services
-    // both document Bearer and it is what any new middleware will expect.
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    try {
+      // Waits for Firebase to restore the session — see auth-sdk. Without this,
+      // anything fired during the restore window goes out unauthenticated.
+      const token = await getIdToken();
+      // `Bearer ` prefix, which the old client omitted. Every service accepts a
+      // bare token for backwards compatibility, but the gateway and the services
+      // both document Bearer and it is what any new middleware will expect.
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    } catch (e) {
+      // A THROW HERE MUST NOT LOOK LIKE A NETWORK FAILURE.
+      //
+      // If Firebase cannot initialise — missing NEXT_PUBLIC_FIREBASE_* vars, a
+      // malformed key — this interceptor used to reject, so axios produced an
+      // error with no `response` and the normaliser below labelled it
+      // NETWORK_ERROR. No request was ever sent. The screen then said "we could
+      // not reach the server" about a server that was up, which sends whoever
+      // debugs it to the wrong layer entirely.
+      //
+      // Send it unauthenticated instead and let the service answer 401. That is
+      // the honest outcome: the caller genuinely has no credential, and a 401
+      // names the problem where a phantom network error hides it.
+      // eslint-disable-next-line no-console
+      console.error(`[api-sdk] could not obtain an auth token (${e.message}) — sending unauthenticated.`);
+    }
     return config;
   });
 

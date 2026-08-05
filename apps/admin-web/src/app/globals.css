@@ -1,0 +1,5 @@
+/* The shared Tailwind layer, including the @source globs that keep utility
+   classes used inside packages/ from being purged. */
+@import "@cocarr/theme/theme.css";
+
+body { font-family: var(--font-sans); }
