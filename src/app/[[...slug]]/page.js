@@ -336,6 +336,9 @@ const ListPage = ({ entry }) => (
       emptyText='Nothing here yet.'
       columns={entry.list.columns || []}
       fields={entry.list.fields || []}
+      // Which platform API backs this list — omit for the core API, 'workspace'
+      // for cocarr-workspace-api. Set on Workspace-panel list configs.
+      api={entry.list.api}
       // Resolved by NAV_ROUTES as `page.module || group.module`, so a list
       // inherits the right module even when it sits in another group's section.
       module={entry.module}

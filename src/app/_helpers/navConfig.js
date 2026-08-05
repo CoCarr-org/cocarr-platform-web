@@ -207,6 +207,141 @@ export const NAV_MODULES = [
       { label: 'Background Jobs', route: '/dashboard/developer/queue',  page: 'BackgroundJobs' },
     ],
   },
+
+  // ── Workspace product (cocarr-workspace-api) ──
+  // These lists set `list.api: 'workspace'` so ResourceManager targets the
+  // Workspace service instead of the core API. They appear on the `workspace`
+  // panel (and root); the `admin` panel excludes them (see panels.js). Each
+  // `module` is registered in COCARR core-api adminPermissions.js so the same
+  // /admin/me grid gates them like every other module. Onboarding (a stateful
+  // wizard) is a bespoke `page` and is added separately, not as a list.
+  {
+    key: 'employees', label: 'Employees', icon: 'people', module: 'employees',
+    pages: [
+      {
+        label: 'Employees', route: '/dashboard/workspace/employees',
+        list: {
+          api: 'workspace', endpoint: '/employees', createLabel: '+ Add Employee',
+          note: 'Employee records. The EMP code and staff login are issued at onboarding approval.',
+          columns: [
+            { key: 'employeeCode', label: 'Code' }, { key: 'firstName', label: 'First' },
+            { key: 'lastName', label: 'Last' }, { key: 'email', label: 'Email' },
+            { key: 'status', label: 'Status' }, { key: 'createdAt', label: 'Added' },
+          ],
+          fields: [
+            { key: 'firstName', label: 'First name', type: 'text', required: true },
+            { key: 'lastName', label: 'Last name', type: 'text' },
+            { key: 'email', label: 'Email', type: 'text', required: true },
+            { key: 'phone', label: 'Phone', type: 'text' },
+            { key: 'departmentId', label: 'Department ID', type: 'text' },
+            { key: 'designationId', label: 'Designation ID', type: 'text' },
+            { key: 'teamId', label: 'Team ID', type: 'text' },
+            { key: 'managerId', label: 'Manager (employee ID)', type: 'text' },
+            { key: 'dateOfJoining', label: 'Date of joining', type: 'date' },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    key: 'orgStructure', label: 'Organization', icon: 'apps', module: 'orgStructure',
+    pages: [
+      {
+        label: 'Departments', route: '/dashboard/workspace/departments',
+        list: {
+          api: 'workspace', endpoint: '/departments', createLabel: '+ Add Department',
+          columns: [
+            { key: 'name', label: 'Name' }, { key: 'code', label: 'Code' },
+            { key: 'isActive', label: 'Active' }, { key: 'createdAt', label: 'Created' },
+          ],
+          fields: [
+            { key: 'name', label: 'Name', type: 'text', required: true },
+            { key: 'code', label: 'Code', type: 'text' },
+            { key: 'description', label: 'Description', type: 'textarea' },
+            { key: 'parentDepartmentId', label: 'Parent department ID', type: 'text' },
+            { key: 'isActive', label: 'Active', type: 'boolean' },
+          ],
+        },
+      },
+      {
+        label: 'Designations', route: '/dashboard/workspace/designations',
+        list: {
+          api: 'workspace', endpoint: '/designations', createLabel: '+ Add Designation',
+          columns: [
+            { key: 'title', label: 'Title' }, { key: 'level', label: 'Level' },
+            { key: 'isActive', label: 'Active' }, { key: 'createdAt', label: 'Created' },
+          ],
+          fields: [
+            { key: 'title', label: 'Title', type: 'text', required: true },
+            { key: 'level', label: 'Level (lower = senior)', type: 'number' },
+            { key: 'description', label: 'Description', type: 'textarea' },
+            { key: 'isActive', label: 'Active', type: 'boolean' },
+          ],
+        },
+      },
+      {
+        label: 'Teams', route: '/dashboard/workspace/teams',
+        list: {
+          api: 'workspace', endpoint: '/teams', createLabel: '+ Add Team',
+          columns: [
+            { key: 'name', label: 'Name' }, { key: 'departmentId', label: 'Department' },
+            { key: 'isActive', label: 'Active' }, { key: 'createdAt', label: 'Created' },
+          ],
+          fields: [
+            { key: 'name', label: 'Name', type: 'text', required: true },
+            { key: 'departmentId', label: 'Department ID', type: 'text' },
+            { key: 'leadEmployeeId', label: 'Lead (employee ID)', type: 'text' },
+            { key: 'description', label: 'Description', type: 'textarea' },
+            { key: 'isActive', label: 'Active', type: 'boolean' },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    key: 'recruitment', label: 'Recruitment', icon: 'people', module: 'recruitment',
+    pages: [
+      {
+        label: 'Candidates', route: '/dashboard/workspace/candidates',
+        list: {
+          api: 'workspace', endpoint: '/candidates', createLabel: '+ Add Candidate',
+          note: 'Hiring pipeline. Use the Hire action (API) to convert a candidate into an employee in onboarding.',
+          columns: [
+            { key: 'firstName', label: 'First' }, { key: 'email', label: 'Email' },
+            { key: 'positionTitle', label: 'Position' }, { key: 'stage', label: 'Stage' },
+            { key: 'createdAt', label: 'Added' },
+          ],
+          fields: [
+            { key: 'firstName', label: 'First name', type: 'text', required: true },
+            { key: 'lastName', label: 'Last name', type: 'text' },
+            { key: 'email', label: 'Email', type: 'text', required: true },
+            { key: 'phone', label: 'Phone', type: 'text' },
+            { key: 'positionTitle', label: 'Position title', type: 'text' },
+            { key: 'departmentId', label: 'Department ID', type: 'text' },
+            { key: 'source', label: 'Source', type: 'text' },
+            { key: 'notes', label: 'Notes', type: 'textarea' },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    key: 'accessRequests', label: 'Access Requests', icon: 'docs', module: 'accessRequests',
+    pages: [
+      {
+        label: 'Access Requests', route: '/dashboard/workspace/access-requests',
+        list: {
+          api: 'workspace', endpoint: '/access-requests', readOnly: true,
+          note: 'Additional-access requests and their decisions. Approving here records the decision; the IAM change is applied by the authorization service.',
+          columns: [
+            { key: 'employeeId', label: 'Employee' }, { key: 'status', label: 'Status' },
+            { key: 'reason', label: 'Reason' }, { key: 'createdAt', label: 'Raised' },
+          ],
+          fields: [],
+        },
+      },
+    ],
+  },
 ]
 
 // Flat route -> page metadata, used by the router.

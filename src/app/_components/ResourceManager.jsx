@@ -1,6 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import authAxios from '@/app/_helpers/axios'
+import workspaceAxios from '@/app/_helpers/workspaceAxios'
 import { InfoToast, ErrorToast } from '@/app/_helpers/toasters'
 import Popup from '@/app/_components/Popup'
 import Input from '@/app/_components/Input'
@@ -28,6 +29,10 @@ export default function ResourceManager({
   readOnly = false,
   extraQuery = '',
   renderRowExtra,
+  // Which platform API backs this endpoint. Default is the core API (authAxios);
+  // 'workspace' points the same CRUD UI at cocarr-workspace-api. Optional and
+  // backward-compatible — every existing caller omits it and keeps the core API.
+  api,
   // The RBAC module this screen belongs to. When given, the Add / Edit / Delete
   // controls are derived from the signed-in admin's team+level instead of being
   // shown to everyone.
@@ -46,6 +51,7 @@ export default function ResourceManager({
   // honest answer — "your level cannot" — is better delivered by its absence
   // plus the level shown in the sidebar. Disabling is for temporarily
   // unavailable, not never-yours.
+  const client = api === 'workspace' ? workspaceAxios : authAxios
   const { can } = usePermissions()
   const allowCreate = !readOnly && (!module || can(module, 'create'))
   const allowUpdate = !readOnly && (!module || can(module, 'update'))
@@ -63,7 +69,7 @@ export default function ResourceManager({
       let q = `offset=${offset}&limit=${LIMIT}`
       if (search) q += `&search=${encodeURIComponent(search)}`
       if (extraQuery) q += `&${extraQuery}`
-      const res = await authAxios.get(`${endpoint}?${q}`)
+      const res = await client.get(`${endpoint}?${q}`)
       setRows(res.data?.data || [])
       setCount(res.data?.totalCount || 0)
     } catch (error) {
@@ -79,8 +85,8 @@ export default function ResourceManager({
     e.preventDefault()
     setSubmitting(true)
     try {
-      if (editing === 'new') await authAxios.post(endpoint, values)
-      else await authAxios.put(`${endpoint}/${editing.id}`, values)
+      if (editing === 'new') await client.post(endpoint, values)
+      else await client.put(`${endpoint}/${editing.id}`, values)
       InfoToast(editing === 'new' ? 'Created' : 'Updated')
       setEditing(null)
       await load()
@@ -94,7 +100,7 @@ export default function ResourceManager({
   const onDelete = async () => {
     setSubmitting(true)
     try {
-      await authAxios.delete(`${endpoint}/${deleting.id}`)
+      await client.delete(`${endpoint}/${deleting.id}`)
       InfoToast('Deleted')
       setDeleting(null)
       await load()

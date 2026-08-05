@@ -50,6 +50,12 @@ export const TIER = { ROOT: 0, ADMIN: 1, MODULE: 2 }
 // gate, and a build that dropped the components is separate work.
 const ROOT_ONLY_MODULES = ['adminAccounts', 'roles']
 
+// Workspace product modules. They live on the dedicated `workspace` panel (and
+// root, which ships everything). They are EXCLUDED from the combined `admin`
+// panel so the car-sharing operations panel stays focused — and because these
+// screens call a different service (cocarr-workspace-api), not the core API.
+const WORKSPACE_MODULES = ['employees', 'orgStructure', 'recruitment', 'accessRequests']
+
 export const PANELS = {
   // root.cocarr.com — super admin. `'*'` means every module navConfig declares.
   // Listing them would mean a new module silently missing from root until
@@ -75,7 +81,7 @@ export const PANELS = {
     tier: TIER.ADMIN,
     teams: ['admin', 'customer-support', 'operations', 'finance', 'marketing', 'developer'],
     modules: '*',
-    excludes: ROOT_ONLY_MODULES,
+    excludes: [...ROOT_ONLY_MODULES, ...WORKSPACE_MODULES],
   },
 
   // ── Per-module panels: declared now, dormant until deployed ──
@@ -125,6 +131,20 @@ export const PANELS = {
     teams: ['developer'],
     modules: ['dashboard', 'systemHealth', 'integrations', 'security', 'settings', 'auditLogs', 'reports'],
   },
+  // workspace.cocarr.com — the Workspace product (employees, HR, organization).
+  // A distinct product surface served by cocarr-workspace-api, deployed as its
+  // own build with NEXT_PUBLIC_PANEL=workspace. An explicit module list (like
+  // the other per-team panels) so only Workspace screens ship here.
+  workspace: {
+    key: 'workspace',
+    label: 'Workspace',
+    tier: TIER.MODULE,
+    teams: ['workspace', 'hr'],
+    // Listed literally (not `...WORKSPACE_MODULES`) so scripts/checkPanelCoverage.mjs,
+    // which parses this file as text, can see the coverage. Keep in sync with
+    // WORKSPACE_MODULES above.
+    modules: ['dashboard', 'employees', 'orgStructure', 'recruitment', 'accessRequests'],
+  },
 }
 
 // `console` and `portal` were the earlier names for root and admin. Accepted so
@@ -146,6 +166,7 @@ const PANEL_HOSTS = {
   finance: process.env.NEXT_PUBLIC_HOST_FINANCE || '',
   growth: process.env.NEXT_PUBLIC_HOST_GROWTH || '',
   developer: process.env.NEXT_PUBLIC_HOST_DEVELOPER || '',
+  workspace: process.env.NEXT_PUBLIC_HOST_WORKSPACE || '',
 }
 
 // Defaults to `admin` so a deployment that sets nothing gets the combined
@@ -207,6 +228,8 @@ const TEAM_ICONS = {
   finance: IoCashOutline,
   marketing: IoMegaphoneOutline,
   developer: IoTerminalOutline,
+  workspace: IoBriefcaseOutline,
+  hr: IoBriefcaseOutline,
 }
 
 export const teamIcon = (teamKey) => TEAM_ICONS[teamKey] || IoPeopleOutline
