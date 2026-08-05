@@ -1,0 +1,9 @@
+{
+  "name": "@cocarr/shared-types",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JSDoc typedefs for platform payloads shared by every app.",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "sideEffects": false
+}

@@ -1,8 +1,84 @@
-# COCARR-ADMIN
+# cocarr-platform-web
 
-Next.js (App Router) admin dashboard for COCARR (car-sharing platform). Redux, Firebase Auth, axios.
+**Turborepo.** Three independently deployed Next.js apps over one set of shared
+packages. **Working branch: `develop`.**
 
-**Working branch: `railway-dev`** — same convention as COCARR-BACKEND: code changes go here, not `main`, deploys to Railway from this branch.
+| App | Product | Host | Port |
+|---|---|---|---|
+| `apps/admin-web` | `platform` | admin.cocarr.com | 3100 |
+| `apps/workspace-web` | `workspace` | workspace.cocarr.com | 3200 |
+| `apps/operations-web` | `operations` | ops.cocarr.com | 3300 |
+
+The existing business modules (bookings, hosts, payments, users, marketing,
+reports, master data) belong to **operations-web**, not admin-web — admin-web is
+Platform Administration, which is mostly IAM screens that did not exist before.
+
+## The nav is server data. There is no nav config.
+`@cocarr/iam-sdk` consumes `GET /v1/platform/me/navigation`, which returns the
+taxonomy **already filtered** to the caller plus their flat permissions, openable
+routes and feature flags. `<DashboardShell product="…">` renders the sidebar from
+it. **A new screen reaches the menu by being seeded in
+cocarr-authorization-service — no frontend deploy.**
+
+- **Never check a role in the UI; check a permission.** `useCan('operations.bookings.update')`,
+  or `<Can permission="…">`. A role is how access was granted; a permission is
+  what was granted, and only the second survives a role being renamed.
+- **The client never decides anything.** It renders what the server filtered. A
+  second implementation of the rules drifts, and the drift is invisible both
+  ways: hide what the server allows and the app looks broken; show what it denies
+  and every click is a 403.
+- **`canOpenRoute` answers `true` / `false` / `null`, and `null` is not "no".**
+  It means "still loading, or not a nav route at all". Every `[id]` detail page
+  is reached FROM a permitted list page and is never in the tree — treat `null`
+  as a denial and you lock people out of every detail screen in the app.
+- **`ready:false` is not "no access".** Render a skeleton, or you flash an empty
+  sidebar at somebody who has everything.
+
+## Package boundaries that matter
+- **`@cocarr/auth-sdk` is the ONLY package that touches Firebase.** Three copies
+  of the session logic existed before. `whenAuthReady()` is why: `auth.currentUser`
+  is null until Firebase restores the session asynchronously, while redux-persist
+  rehydrates synchronously — so the app believes it is signed in and fetches a
+  beat too early. That window 401'd `/admin/me` on every cold load.
+- **`@cocarr/api-sdk` is gateway-first.** Name a service, get its gateway prefix.
+  Direct per-service URLs are an opt-in downgrade, not the default: a service
+  reachable directly is a service whose rate limiting, CORS and correlation ids
+  are optional.
+- **Workspace packages ship as SOURCE**, so every app needs `transpilePackages`
+  in `next.config.mjs` — without it a JSX file from `packages/` reaches the
+  bundler untransformed and the build fails on the first tag.
+
+## Layout / scrolling — unchanged rules, new home
+`@cocarr/layouts`. The shell is `flex h-screen overflow-hidden`, so `<main>`
+needs `overflow-y-auto` or nothing below the fold is reachable on any page. The
+sidebar's nav list needs `flex-1 min-h-0 overflow-y-auto` with `shrink-0` on the
+logo block. **`min-h-0` is the non-obvious part** — a flex child defaults to
+`min-height:auto` and will not shrink below its content, so `overflow-y-auto`
+alone does nothing.
+
+Expand/collapse state lives solely in the sidebar's `open` state. Do not also
+derive it from the pathname: that combination makes a group impossible to
+collapse while you are inside it.
+
+## Migration status — READ THIS FIRST
+**The structure and the shared SDKs exist; the 169 existing files have not
+moved.** `src/app/**` is still the old single app and still works. See
+[MIGRATION.md](MIGRATION.md) for the file-by-file plan, the deletions and the
+acceptance test. It was split this way because the machine could not run a build
+(disk full), and moving 169 files with rewritten imports unverified would produce
+a tree that looks finished and is invisibly broken.
+
+## Images — private bucket, must proxy
+`@cocarr/shared-utils` `photoUrl()`. Uploaded images live in a private bucket;
+raw links 403. Apply it to every `<img src>` sourced from a DB field. Both key
+formats must keep working — `<folder>/<uuid>` and the bare legacy `<uuid>`, since
+old rows were never migrated. The folder list mirrors `storageFolders.js` on the
+backend; adding one there means adding it here.
+
+---
+
+# Legacy notes (the single admin app, still live under `src/app/`)
+
 
 ## Routing is NOT real Next.js file-based routing
 `src/app/[[...slug]]/page.js` is a single catch-all that hand-rolls its own router: every page component is statically imported at the top, then mapped in a `staticRouteMap` object (`{'/dashboard/x': XPage}`) or matched against a dynamic-route regex further down. **Adding a new page under `src/app/_pages/...` does nothing by itself** — you must also import it and add a `staticRouteMap` entry (or a regex branch for `[id]`-style routes) in this file, or the path silently falls through to the Dashboard home page instead of 404ing. This is the single easiest thing to forget when adding a page here.

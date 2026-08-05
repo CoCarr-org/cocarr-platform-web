@@ -1,0 +1,10 @@
+{
+  "name": "@cocarr/auth-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Firebase session handling. The ONLY package that touches Firebase.",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "sideEffects": false,
+  "peerDependencies": { "react": ">=18", "firebase": ">=11" }
+}

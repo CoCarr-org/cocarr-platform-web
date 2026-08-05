@@ -1,0 +1,15 @@
+{
+  "name": "@cocarr/forms",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Form controls and validation wiring.",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=18",
+    "react-hook-form": ">=7"
+  }
+}

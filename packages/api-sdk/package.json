@@ -1,0 +1,18 @@
+{
+  "name": "@cocarr/api-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gateway-first HTTP clients for the platform services.",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./urls": "./src/urls.js"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@cocarr/auth-sdk": "1.0.0"
+  },
+  "peerDependencies": {
+    "axios": ">=1"
+  }
+}

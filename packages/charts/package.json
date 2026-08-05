@@ -1,0 +1,15 @@
+{
+  "name": "@cocarr/charts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chart wrappers with the platform palette applied.",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=18",
+    "chart.js": ">=4"
+  }
+}

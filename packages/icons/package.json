@@ -1,0 +1,10 @@
+{
+  "name": "@cocarr/icons",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The single icon set every app imports from.",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "sideEffects": false,
+  "peerDependencies": { "react": ">=18", "react-icons": ">=5" }
+}

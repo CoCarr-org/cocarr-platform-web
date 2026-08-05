@@ -1,0 +1,4 @@
+/* The COCARR design system, shared by all three apps. Everything — brand
+   colours, button classes, table chrome, form controls — lives in
+   @cocarr/theme so admin / operations / workspace cannot drift apart. */
+@import "@cocarr/theme/theme.css";

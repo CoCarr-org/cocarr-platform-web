@@ -1,0 +1,14 @@
+{
+  "name": "@cocarr/shared-utils",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pure helpers: dates, formatting, image proxy URLs.",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@cocarr/api-sdk": "1.0.0"
+  }
+}
