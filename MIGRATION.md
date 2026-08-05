@@ -76,7 +76,31 @@ porting it would ship an editor for the wrong system. admin-web needs a new IAM
 editor against roles, permissions and permission sets; that is real work, not a
 move, and it is tracked as such.
 
-Remaining: operations-web's 41 routes, on exactly this pattern.
+**operations-web is DONE** — all 41 routes, verified against IAM (every route the
+taxonomy declares has a page file, and no page exists that IAM does not know
+about). This was the bulk: 38 real page components plus 3 list configs, 8
+page-local subcomponents, and 23 shared components now in `@cocarr/ui`.
+
+All three apps are migrated. What remains is deleting the legacy `src/` tree
+once the deployed apps have been exercised.
+
+### What the operations migration turned up
+- **Two screens still spoke the retired vocabulary.** The dashboard read
+  `usePermissions()` for team/level and `PANEL.label`; the verification queue
+  called `can('users','update')`. Both now read the IAM payload — the dashboard
+  shows roles, and the queue asks for `operations.users.update`.
+- **`NoAccess` moved to `@cocarr/layouts`**, not `ui`: it is permission-aware, and
+  `layouts` already depends on `iam-sdk`. Putting it in `ui` would have dragged
+  IAM into the presentational package.
+- **Seven components were removed, then two put back.** A crude grep for broken
+  imports flagged `SlidePopup` on a COMMENTED-OUT line and `CropperPopup` for a
+  dependency that was merely uninstalled. `SingleImageHolder` needs the latter,
+  so both returned with `react-cropper` declared. The genuinely broken ones —
+  including `ImageUploader`, which the legacy notes already record as crashing —
+  stay out until a screen needs them.
+- **A pre-existing `react/jsx-key` bug blocked the build.** Next lints during
+  build and treats it as an error, so a mapped `<tr>` with no key in the brands
+  screen had to be fixed to deploy at all.
 
 ## A build passing is not enough — two checks that catch what it misses
 

@@ -1,0 +1,9 @@
+# Keep the upload small and deterministic: build output and dependencies are
+# reinstalled by the builder, and shipping them would both bloat the upload and
+# risk a stale .next being served.
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
