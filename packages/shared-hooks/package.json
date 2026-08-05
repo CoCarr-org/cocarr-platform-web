@@ -1,0 +1,10 @@
+{
+  "name": "@cocarr/shared-hooks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cross-app React hooks that are not IAM or auth specific.",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "sideEffects": false,
+  "peerDependencies": { "react": ">=18" }
+}

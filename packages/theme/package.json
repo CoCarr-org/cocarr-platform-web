@@ -1,0 +1,9 @@
+{
+  "name": "@cocarr/theme",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Design tokens and the shared Tailwind preset.",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "sideEffects": false
+}

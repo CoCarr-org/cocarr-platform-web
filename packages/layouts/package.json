@@ -1,0 +1,11 @@
+{
+  "name": "@cocarr/layouts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App shell, sidebar and page chrome — driven by iam-sdk.",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "sideEffects": false,
+  "dependencies": { "@cocarr/ui": "1.0.0", "@cocarr/iam-sdk": "1.0.0", "@cocarr/icons": "1.0.0" },
+  "peerDependencies": { "react": ">=18", "next": ">=15" }
+}

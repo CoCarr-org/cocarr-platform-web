@@ -1,0 +1,11 @@
+{
+  "name": "@cocarr/iam-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Permission and navigation state, resolved from the IAM navigation payload.",
+  "main": "./src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "sideEffects": false,
+  "dependencies": { "@cocarr/api-sdk": "1.0.0" },
+  "peerDependencies": { "react": ">=18" }
+}

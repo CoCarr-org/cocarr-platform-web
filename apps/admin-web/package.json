@@ -1,0 +1,26 @@
+{
+  "name": "@cocarr/admin-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cocarr Platform — deploys to admin.cocarr.com",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@cocarr/api-sdk": "1.0.0",
+    "@cocarr/auth-sdk": "1.0.0",
+    "@cocarr/iam-sdk": "1.0.0",
+    "@cocarr/layouts": "1.0.0",
+    "@cocarr/shared-utils": "1.0.0",
+    "@cocarr/theme": "1.0.0",
+    "@cocarr/ui": "1.0.0",
+    "axios": "^1.8.4",
+    "firebase": "^11.6.0",
+    "next": "^15.2.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
