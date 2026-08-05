@@ -1,22 +1,30 @@
 'use client';
 import { DashboardShell } from '@cocarr/layouts';
 
-// The whole shell for this app. The nav is NOT declared here — DashboardShell
-// loads the IAM navigation payload and renders whatever this principal may see
-// within the 'platform' product. Adding a screen to this app is a seeding
-// change in the authorization service, not an edit to this file.
+// The whole shell for this app — the same component in all three, so the three
+// sites cannot drift apart visually.
+//
+// The nav is NOT declared here. DashboardShell loads the IAM navigation payload
+// and renders whatever this principal may see within the 'platform' product, so
+// adding a screen is a seeding change in cocarr-authorization-service rather
+// than an edit to this file.
 export default function DashboardLayout({ children }) {
   return (
     <DashboardShell
       product="platform"
-      brand={<span className="text-lg font-semibold">Cocarr Platform</span>}
-      loading={<div className="p-8 text-sm text-slate-500">Loading your workspace…</div>}
+      label="Platform"
+      loading={
+        <div className="flex h-screen items-center justify-center bg-[#151515]">
+          <p className="text-[13px] text-[#a3a3a3]">Checking your access…</p>
+        </div>
+      }
       onError={({ error, retry }) => (
-        <div className="p-8">
-          <p className="text-sm text-slate-700">We could not load your access ({error.code}).</p>
-          <button type="button" onClick={retry} className="mt-3 rounded bg-slate-900 px-3 py-2 text-sm text-white">
-            Try again
-          </button>
+        <div className="flex h-screen items-center justify-center bg-[#151515]">
+          <div className="max-w-sm text-center">
+            <p className="text-[14px] text-[#e3e3e3]">We could not load your access.</p>
+            <p className="mt-1 text-[12px] text-[#757575]">{error.message} ({error.code})</p>
+            <button type="button" onClick={retry} className="btn-md mt-4">Try again</button>
+          </div>
         </div>
       )}
     >

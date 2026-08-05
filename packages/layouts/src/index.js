@@ -1,3 +1,3 @@
-export { Sidebar } from './Sidebar';
+export { default as Sidebar } from './Sidebar';
 export { DashboardShell } from './DashboardShell';
 export { RouteGuard } from './RouteGuard';

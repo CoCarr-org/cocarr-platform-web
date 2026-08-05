@@ -59,7 +59,38 @@ the controls from `<permission>.create|update|delete`. It also takes `api` as a
 SERVICE NAME (`core` / `workspace` / `platform`) instead of importing two axios
 instances, so a screen never holds a base URL.
 
-Remaining: the other two apps, on exactly this pattern.
+**admin-web is DONE too** — 15 of its 16 routes, with the real page components
+moved and their imports rewritten.
+
+**The UI itself now comes from COCARR-ADMIN, unchanged.** `@cocarr/theme` is that
+repo's `globals.css` verbatim — brand colours, `btn-*` classes, table chrome,
+form controls, datepicker overrides — and `@cocarr/layouts` carries its actual
+sidebar: the `#151515` rail, the gold `#ECC032` active dot, page counts,
+chevrons, pinning, page search, the logout footer. Only the SOURCE of the nav
+changed (IAM instead of navConfig.js). All three apps mount the same
+`DashboardShell`, so they cannot drift apart visually.
+
+**`/dashboard/teams-access` is deliberately NOT migrated.** It edits
+COCARR-BACKEND's team/level grid, which cocarr-authorization-service replaces —
+porting it would ship an editor for the wrong system. admin-web needs a new IAM
+editor against roles, permissions and permission sets; that is real work, not a
+move, and it is tracked as such.
+
+Remaining: operations-web's 41 routes, on exactly this pattern.
+
+## A build passing is not enough — two checks that catch what it misses
+
+`node /tmp/graphcheck.js`-style checks are in the repo history; the two that
+matter:
+
+1. **Declared == used.** Every cross-package import must be declared, and every
+   declared cross-package dep must be imported. An undeclared one breaks at
+   install; an unused one is a claim about the architecture that is not true.
+2. **Every named import must resolve to a real export.** This is the important
+   one: `import Popup from '@cocarr/ui'` — a DEFAULT import of a package with
+   only named exports — **compiles cleanly and yields `undefined`**, which React
+   only fails on at render. The bulk import rewrite produced 17 files like this
+   and the production build passed all of them.
 
 ## Step 1 — components out of `src/app/_components` (41 files)
 

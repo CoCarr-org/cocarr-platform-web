@@ -1,20 +1,32 @@
 'use client';
 import { NavigationProvider } from '@cocarr/iam-sdk';
-import { Sidebar } from './Sidebar';
+import Sidebar from './Sidebar';
 
-// The one place that decides whether page content can scroll.
+// The app shell, identical in all three apps — taken from COCARR-ADMIN's
+// dashboard layout.
 //
-// `h-screen overflow-hidden` pins the app to the viewport, which is what keeps
-// the sidebar fixed while content moves — and it is exactly why `<main>` needs
-// its own `overflow-y-auto`. Without it nothing below the fold is reachable on
-// ANY page, which is a whole-app bug that presents as "this one screen is cut
-// off". It was missing once already.
-export function DashboardShell({ product, brand, children, loading, onError }) {
+// `flex h-screen overflow-hidden` pins the app to the viewport, which is what
+// keeps the sidebar fixed while content moves — and is exactly why `<main>`
+// needs its own `overflow-y-auto`. Without it nothing below the fold is
+// reachable on ANY page, a whole-app bug that presents as "this one screen is
+// cut off". It was missing once already in the original.
+//
+// The `#F5F5F5` content background is the brand's, not an arbitrary grey; it
+// matches `body` in the design system.
+export function DashboardShell({
+  product,
+  label,
+  logoSrc = '/logo.png',
+  children,
+  loading,
+  onError,
+  onSignOut,
+}) {
   return (
     <NavigationProvider fallback={loading} errorFallback={onError}>
-      <div className="flex h-screen overflow-hidden bg-slate-50">
-        <Sidebar product={product} brand={brand} />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar product={product} label={label} logoSrc={logoSrc} onSignOut={onSignOut} />
+        <main className="flex-1 bg-[#F5F5F5] overflow-y-auto">{children}</main>
       </div>
     </NavigationProvider>
   );
