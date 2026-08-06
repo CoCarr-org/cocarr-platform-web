@@ -11,7 +11,9 @@
   "peerDependencies": {
     "react": ">=18",
     "react-icons": ">=5",
-    "lucide-react": ">=0.4"
+    "lucide-react": ">=0.4",
+    "react-cropper": ">=2",
+    "cropperjs": ">=1"
   },
   "dependencies": {
     "@cocarr/shared-utils": "1.0.0",
