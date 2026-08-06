@@ -241,6 +241,14 @@ export const NAV_MODULES = [
           ],
         },
       },
+      // The stateful half of the employee lifecycle, and deliberately not a
+      // list: hire -> profile -> documents -> review -> approve is a workflow,
+      // and approval is the step that mints the EMP code, creates the Firebase
+      // staff login and returns the one-time password-reset link. It sits under
+      // `employees` because that is the permission the API gates it with
+      // (onboardingRouter uses requirePermission('employees', …)), not because
+      // it is a variation on the employee list.
+      { label: 'Onboarding', route: '/dashboard/workspace/onboarding', page: 'EmployeeOnboarding' },
     ],
   },
   {
