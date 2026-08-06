@@ -4,7 +4,6 @@ import { ErrorToast, InfoToast } from '@cocarr/notifications'
 import { LIMIT, getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
 import { Header, Pagination, SearchInput } from '@cocarr/ui'
 // import ManageUser from './_components/ManagerUser'
-import { useRouter } from 'next/navigation'
 import axios from 'axios'
 
 export default function Membership() {
@@ -16,7 +15,6 @@ export default function Membership() {
     const [count,setCount] = useState(5)
     const [sort,setSort] = useState('-createdAt')
     const [disableExport,setDisableExport] = useState(false)
-    const navigate = useRouter()
 
 
     async function getMemberships(){
@@ -102,7 +100,11 @@ export default function Membership() {
                             {
                                 memberships.map((item,index)=>
                                 {
-                                    return <tr key={index} onClick={()=>navigate.push(`/dashboard/membership/${item.id}/`)}>
+                                    // No row click: /dashboard/membership/:id has never existed —
+                                    // not here and not in the legacy app — so this navigated
+                                    // straight to a 404. Every field the row would drill into is
+                                    // already on the row. Restore the link when a detail page does.
+                                    return <tr key={index}>
                                         <td className='capitalize'>
                                             <div>
                                                 <p className='text-sm font-medium my-0'>{item.user.name || 'Unavailable'}</p>
