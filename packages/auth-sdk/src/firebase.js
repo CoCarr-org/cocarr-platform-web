@@ -81,3 +81,70 @@ export function currentUser() {
 export function signOut() {
   return fbSignOut(ensure());
 }
+
+// ── SIGN-IN ──────────────────────────────────────────────────────────────────
+// Email/password against the admin Firebase project, same as the legacy panel.
+// Errors are translated: Firebase's codes are accurate and unreadable, and
+// "auth/invalid-credential" in front of somebody who mistyped a password is not
+// an error message, it is a shrug.
+const SIGN_IN_ERRORS = {
+  'auth/invalid-credential': 'That email and password do not match.',
+  'auth/invalid-email': 'That does not look like an email address.',
+  'auth/user-disabled': 'This account has been disabled.',
+  'auth/user-not-found': 'That email and password do not match.',
+  'auth/wrong-password': 'That email and password do not match.',
+  'auth/too-many-requests': 'Too many attempts. Wait a moment and try again.',
+  'auth/network-request-failed': 'Could not reach the sign-in service.',
+  'auth/invalid-api-key': 'Sign-in is not configured for this site.',
+};
+
+export async function signIn(email, password) {
+  const { signInWithEmailAndPassword } = await import('firebase/auth');
+  try {
+    const cred = await signInWithEmailAndPassword(ensure(), email, password);
+    return cred.user;
+  } catch (e) {
+    const err = new Error(SIGN_IN_ERRORS[e.code] || 'Could not sign you in.');
+    err.code = e.code;
+    throw err;
+  }
+}
+
+export async function sendPasswordReset(email) {
+  const { sendPasswordResetEmail } = await import('firebase/auth');
+  // Deliberately does NOT distinguish "no such account" — that turns the form
+  // into a way to test which email addresses exist.
+  await sendPasswordResetEmail(ensure(), email);
+}
+
+// ── SESSION EXPIRY ───────────────────────────────────────────────────────────
+// One place decides what "your session ended" means, so every app behaves the
+// same and no screen has to handle a 401 itself.
+//
+// Firebase refreshes an ID token on its own for an hour at a time; a session
+// ends when the refresh itself fails — the account was disabled, the password
+// changed, the token was revoked. `onIdTokenChanged` firing with null IS that
+// signal, and it is why this listens there rather than inspecting expiry times.
+const expiryHandlers = new Set();
+
+export function onSessionExpired(handler) {
+  expiryHandlers.add(handler);
+  return () => expiryHandlers.delete(handler);
+}
+
+let expiryNotified = false;
+export function notifySessionExpired() {
+  // Once per session: a page firing five parallel requests would otherwise
+  // announce the same expiry five times and race five redirects.
+  if (expiryNotified) return;
+  expiryNotified = true;
+  expiryHandlers.forEach((h) => { try { h(); } catch { /* never let one handler stop the rest */ } });
+}
+
+export function startSessionWatch() {
+  const { onIdTokenChanged } = require('firebase/auth');
+  return onIdTokenChanged(ensure(), (user) => {
+    if (user) expiryNotified = false;
+    else notifySessionExpired();
+  });
+}
