@@ -40,9 +40,7 @@
     "react-easy-crop": "^5.4.1",
     "@splidejs/react-splide": "^0.7.12",
     "react-cropper": "^2.3.3",
-    "cropperjs": "^1.6.2"
-  },
-  "devDependencies": {
+    "cropperjs": "^1.6.2",
     "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4"
   }
