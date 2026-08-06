@@ -1,6 +1,7 @@
 'use client';
 import { NavigationProvider } from '@cocarr/iam-sdk';
 import Sidebar from './Sidebar';
+import { RequireAuth } from './RequireAuth';
 
 // The app shell, identical in all three apps — taken from COCARR-ADMIN's
 // dashboard layout.
@@ -22,12 +23,17 @@ export function DashboardShell({
   onError,
   onSignOut,
 }) {
+  // RequireAuth wraps the NavigationProvider, not the other way round: loading
+  // the navigation payload for somebody who is not signed in would fire a
+  // guaranteed 401 on every cold load and trip the session-expiry handler.
   return (
-    <NavigationProvider fallback={loading} errorFallback={onError}>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar product={product} label={label} logoSrc={logoSrc} onSignOut={onSignOut} />
-        <main className="flex-1 bg-[#F5F5F5] overflow-y-auto">{children}</main>
-      </div>
-    </NavigationProvider>
+    <RequireAuth fallback={loading}>
+      <NavigationProvider fallback={loading} errorFallback={onError}>
+        <div className="flex h-screen overflow-hidden">
+          <Sidebar product={product} label={label} logoSrc={logoSrc} onSignOut={onSignOut} />
+          <main className="flex-1 bg-[#F5F5F5] overflow-y-auto">{children}</main>
+        </div>
+      </NavigationProvider>
+    </RequireAuth>
   );
 }

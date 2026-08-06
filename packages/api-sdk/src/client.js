@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getIdToken } from '@cocarr/auth-sdk';
+import { getIdToken, notifySessionExpired } from '@cocarr/auth-sdk';
 import { baseUrlFor } from './urls';
 
 // GATEWAY-FIRST HTTP CLIENTS.
@@ -72,6 +72,18 @@ export function createClient(service) {
         ? { code: data.code || 'ERROR', message: data.error }
         : data?.error || { code: 'NETWORK_ERROR', message: error.message };
       error.platform = { status: error.response?.status || 0, ...normalised };
+
+      // A 401 means the credential we sent is no longer accepted — expired,
+      // revoked, or the account was disabled. Announce it ONCE, centrally, so
+      // every app signs out and shows the login screen instead of each screen
+      // rendering its own broken state.
+      //
+      // 403 is deliberately NOT included: that is "you are who you say you are
+      // and may not do this", which is a permissions answer, not a session one.
+      // Signing somebody out for it would hide a real access problem behind a
+      // login form.
+      if (error.response?.status === 401) notifySessionExpired();
+
       return Promise.reject(error);
     },
   );
