@@ -21,11 +21,28 @@ import { emptyNavigation, fromPayload } from './core';
 // because "we could not load your access" and "you have no access" call for
 // completely different screens — and only one of them is worth retrying.
 
+// ── WHY THE PRODUCT LIVES HERE ──
+// Each app ships exactly one product, and `GET /me/navigation` returns EVERY
+// product this principal can see. So a screen that reads the navigation without
+// scoping it gets other apps' routes — which resolve to nothing here.
+//
+// That is not hypothetical: the post-login redirect used an unscoped
+// `defaultRoute`, took the first group across all products, and sent the owner
+// of workspace-dev to /dashboard/admin-accounts — an admin-web route — where it
+// 404'd. It only happened to someone who can see more than one product, which
+// is why it survived until a super admin signed in.
+//
+// Putting the product on the provider makes scoping the DEFAULT rather than
+// something each screen must remember. A hook can still be given an explicit
+// product to deliberately look across apps; forgetting now yields the right
+// answer instead of the wrong one.
 const NavigationContext = createContext({
-  nav: emptyNavigation(), error: null, reload: () => {},
+  nav: emptyNavigation(), error: null, reload: () => {}, product: null,
 });
 
-export function NavigationProvider({ children, fallback = null, errorFallback = null }) {
+export function NavigationProvider({
+  children, product = null, fallback = null, errorFallback = null,
+}) {
   const [nav, setNav] = useState(emptyNavigation());
   const [error, setError] = useState(null);
   const [nonce, setNonce] = useState(0);
@@ -48,7 +65,9 @@ export function NavigationProvider({ children, fallback = null, errorFallback = 
     return () => { cancelled = true; };
   }, [nonce]);
 
-  const value = useMemo(() => ({ nav, error, reload }), [nav, error, reload]);
+  const value = useMemo(() => ({
+    nav, error, reload, product,
+  }), [nav, error, reload, product]);
 
   if (error && errorFallback) return errorFallback({ error, retry: reload });
   if (!nav.ready && fallback) return fallback;

@@ -46,9 +46,16 @@ export function useCanOpenRoute() {
   return useMemo(() => (route) => canOpenRoute(nav, route), [nav]);
 }
 
+/**
+ * The nav for THIS APP, scoped to its product by default.
+ *
+ * The product comes from NavigationProvider unless a caller overrides it, so a
+ * screen that forgets to scope gets the right answer rather than every other
+ * app's routes. Pass `{ product: null }` explicitly to look across all products.
+ */
 export function useSidebar(options) {
-  const nav = useNavigation();
-  const product = options?.product;
+  const { nav, product: appProduct } = useNavigationContext();
+  const product = options && 'product' in options ? options.product : appProduct;
   return useMemo(() => buildSidebar(nav, { product }), [nav, product]);
 }
 
@@ -57,9 +64,17 @@ export function useRouteContext(route) {
   return useMemo(() => findByRoute(nav, route), [nav, route]);
 }
 
+/**
+ * Where to send somebody who lands on the app root — the first screen THIS APP
+ * can open for them.
+ *
+ * Scoped to the provider's product. Unscoped it returned the first route across
+ * every product the principal could see, which sent a super admin on
+ * workspace-dev to /dashboard/admin-accounts and straight into a 404.
+ */
 export function useDefaultRoute() {
-  const nav = useNavigation();
-  return useMemo(() => defaultRoute(nav), [nav]);
+  const { nav, product } = useNavigationContext();
+  return useMemo(() => defaultRoute(nav, { product }), [nav, product]);
 }
 
 export function useFeatureFlag(key) {
