@@ -56,6 +56,52 @@ export default function ResourceManager({
   // The actions COLUMN only earns its width if at least one action survives.
   const anyRowAction = allowUpdate || allowDelete
 
+  // OPTIONS LOADED FROM THE API, so a foreign key is a dropdown rather than a
+  // box you type a uuid into.
+  //
+  // Every relational field was `type: 'text'` — "Department ID", "Manager
+  // (employee ID)" — which asks somebody to know a uuid by heart, and silently
+  // accepts a typo as a valid-looking value. A field declares where its options
+  // come from and this loads them once:
+  //
+  //   { key: 'departmentId', type: 'select',
+  //     optionsFrom: { api: 'workspace', endpoint: '/departments',
+  //                    value: 'id', label: 'name' } }
+  //
+  // Fetched here rather than by each screen so every list gets it for free, and
+  // a failure is per-FIELD: one unreachable lookup leaves that dropdown empty
+  // with the rest of the form usable, instead of taking out the whole dialog.
+  const [remoteOptions, setRemoteOptions] = useState({})
+  const optionSpecs = JSON.stringify(
+    (fields || []).filter((f) => f.optionsFrom).map((f) => [f.key, f.optionsFrom]),
+  )
+  useEffect(() => {
+    const specs = JSON.parse(optionSpecs)
+    if (specs.length === 0) return
+    let cancelled = false
+    ;(async () => {
+      const loaded = {}
+      await Promise.all(specs.map(async ([key, spec]) => {
+        try {
+          const res = await createClient(spec.api || api).get(`${spec.endpoint}?limit=${spec.limit || 500}`)
+          const list = res.data?.data || res.data || []
+          loaded[key] = list.map((row) => ({
+            value: String(row[spec.value || 'id']),
+            // A label built from more than one column (an employee's first and
+            // last name) is common enough to be worth supporting directly.
+            name: (spec.label || 'name').split('+')
+              .map((c) => row[c.trim()]).filter(Boolean).join(' ') || String(row[spec.value || 'id']),
+          }))
+        } catch (_) { loaded[key] = [] }
+      }))
+      if (!cancelled) setRemoteOptions(loaded)
+    })()
+    return () => { cancelled = true }
+  }, [optionSpecs, api])
+
+  // A field's own static options win; otherwise whatever was fetched for it.
+  const optionsFor = (f) => f.options || remoteOptions[f.key] || []
+
   const [editing, setEditing] = useState(null)   // row | 'new' | null
   const [deleting, setDeleting] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -119,7 +165,10 @@ export default function ResourceManager({
       )
     }
     if (field?.type === 'select') {
-      return <span className='capitalize'>{field.options?.find((o) => String(o.value) === String(value))?.name || value || '—'}</span>
+      // The table cell resolves through the SAME options the editor uses, so a
+      // column shows "Operations" rather than a raw uuid.
+      const opts = field.options || remoteOptions[colKey] || []
+      return <span className='capitalize'>{opts.find((o) => String(o.value) === String(value))?.name || value || '—'}</span>
     }
     if (colKey === 'createdAt' || colKey === 'updatedAt' || field?.type === 'date') {
       return value ? getDateTimeFormat(value) : '—'
@@ -232,7 +281,7 @@ const RecordPopup = ({ row, fields, submitting, onClose, onSubmit }) => {
               />
             ) : f.type === 'select' ? (
               <Select
-                options={f.options || []}
+                options={optionsFor(f)}
                 value={String(values[f.key] ?? '')}
                 setValue={(v) => set(f.key, v)}
                 customValue='value'

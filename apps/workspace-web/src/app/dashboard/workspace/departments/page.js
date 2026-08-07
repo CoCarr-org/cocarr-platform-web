@@ -53,8 +53,9 @@ export default function Page() {
         },
         {
           "key": "parentDepartmentId",
-          "label": "Parent department ID",
-          "type": "text"
+          "label": "Parent department",
+          "type": "select",
+          "optionsFrom": { "api": "workspace", "endpoint": "/departments", "value": "id", "label": "name" }
         },
         {
           "key": "isActive",

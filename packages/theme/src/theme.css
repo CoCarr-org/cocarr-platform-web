@@ -102,9 +102,40 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* TYPED TEXT WAS INVISIBLE, and this line was why: `color: '#000'` — QUOTED.
+   A quoted colour is not a valid CSS value, so the browser discarded the whole
+   declaration and body fell back to the UA default, which is `canvastext`. On a
+   machine set to dark mode that resolves to WHITE, and white on the near-white
+   input background (#fcfcfc) is text you cannot see while you type it.
+
+   It looked fine for anyone in light mode, which is why it survived.
+
+   `color-scheme: light` is the belt to that braces: it tells the browser this UI
+   is light, so it stops dark-ifying form controls, scrollbars and autofill on a
+   dark-mode machine. Without it the same class of bug returns the moment some
+   other element relies on a UA default. */
+html {
+  color-scheme: light;
+}
+
 body {
-  color: '#000';
+  color: #000;
   font-family: 'Inter', Helvetica, sans-serif;
+}
+
+/* Inputs state their own colour rather than inheriting it. Text you are typing
+   is the one thing that must never be invisible, so it should not depend on an
+   ancestor rule staying correct. */
+input,
+textarea,
+select {
+  color: #151515;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9a9a9a;
+  opacity: 1; /* Firefox dims placeholders by default, making them near-invisible */
 }
 
 p{

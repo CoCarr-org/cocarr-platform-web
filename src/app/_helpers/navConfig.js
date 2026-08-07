@@ -238,10 +238,14 @@ export const NAV_MODULES = [
             { key: 'lastName', label: 'Last name', type: 'text' },
             { key: 'email', label: 'Email', type: 'text', required: true },
             { key: 'phone', label: 'Phone', type: 'text' },
-            { key: 'departmentId', label: 'Department ID', type: 'text' },
-            { key: 'designationId', label: 'Designation ID', type: 'text' },
-            { key: 'teamId', label: 'Team ID', type: 'text' },
-            { key: 'managerId', label: 'Manager (employee ID)', type: 'text' },
+            // Relational fields are DROPDOWNS, not boxes you type a uuid into.
+            // `optionsFrom` tells ResourceManager where to load them; the same
+            // options resolve the table cell, so the column reads "Operations"
+            // rather than a uuid.
+            { key: 'departmentId', label: 'Department', type: 'select', optionsFrom: { api: 'workspace', endpoint: '/departments', value: 'id', label: 'name' } },
+            { key: 'designationId', label: 'Designation', type: 'select', optionsFrom: { api: 'workspace', endpoint: '/designations', value: 'id', label: 'title' } },
+            { key: 'teamId', label: 'Team', type: 'select', optionsFrom: { api: 'workspace', endpoint: '/teams', value: 'id', label: 'name' } },
+            { key: 'managerId', label: 'Reports to', type: 'select', optionsFrom: { api: 'workspace', endpoint: '/employees', value: 'id', label: 'firstName + lastName' } },
             { key: 'dateOfJoining', label: 'Date of joining', type: 'date' },
           ],
         },
@@ -276,7 +280,7 @@ export const NAV_MODULES = [
             { key: 'name', label: 'Name', type: 'text', required: true },
             { key: 'code', label: 'Code', type: 'text' },
             { key: 'description', label: 'Description', type: 'textarea' },
-            { key: 'parentDepartmentId', label: 'Parent department ID', type: 'text' },
+            { key: 'parentDepartmentId', label: 'Parent department', type: 'select', optionsFrom: { api: 'workspace', endpoint: '/departments', value: 'id', label: 'name' } },
             { key: 'isActive', label: 'Active', type: 'boolean' },
           ],
         },
@@ -307,7 +311,7 @@ export const NAV_MODULES = [
           ],
           fields: [
             { key: 'name', label: 'Name', type: 'text', required: true },
-            { key: 'departmentId', label: 'Department ID', type: 'text' },
+            { key: 'departmentId', label: 'Department', type: 'select', optionsFrom: { api: 'workspace', endpoint: '/departments', value: 'id', label: 'name' } },
             { key: 'leadEmployeeId', label: 'Lead (employee ID)', type: 'text' },
             { key: 'description', label: 'Description', type: 'textarea' },
             { key: 'isActive', label: 'Active', type: 'boolean' },
@@ -335,7 +339,7 @@ export const NAV_MODULES = [
             { key: 'email', label: 'Email', type: 'text', required: true },
             { key: 'phone', label: 'Phone', type: 'text' },
             { key: 'positionTitle', label: 'Position title', type: 'text' },
-            { key: 'departmentId', label: 'Department ID', type: 'text' },
+            { key: 'departmentId', label: 'Department', type: 'select', optionsFrom: { api: 'workspace', endpoint: '/departments', value: 'id', label: 'name' } },
             { key: 'source', label: 'Source', type: 'text' },
             { key: 'notes', label: 'Notes', type: 'textarea' },
           ],
