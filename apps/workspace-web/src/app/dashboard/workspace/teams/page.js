@@ -43,8 +43,9 @@ export default function Page() {
         },
         {
           "key": "departmentId",
-          "label": "Department ID",
-          "type": "text"
+          "label": "Department",
+          "type": "select",
+          "optionsFrom": { "api": "workspace", "endpoint": "/departments", "value": "id", "label": "name" }
         },
         {
           "key": "leadEmployeeId",

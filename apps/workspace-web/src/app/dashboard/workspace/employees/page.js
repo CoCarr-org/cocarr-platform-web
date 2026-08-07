@@ -67,23 +67,27 @@ export default function Page() {
         },
         {
           "key": "departmentId",
-          "label": "Department ID",
-          "type": "text"
+          "label": "Department",
+          "type": "select",
+          "optionsFrom": { "api": "workspace", "endpoint": "/departments", "value": "id", "label": "name" }
         },
         {
           "key": "designationId",
-          "label": "Designation ID",
-          "type": "text"
+          "label": "Designation",
+          "type": "select",
+          "optionsFrom": { "api": "workspace", "endpoint": "/designations", "value": "id", "label": "title" }
         },
         {
           "key": "teamId",
-          "label": "Team ID",
-          "type": "text"
+          "label": "Team",
+          "type": "select",
+          "optionsFrom": { "api": "workspace", "endpoint": "/teams", "value": "id", "label": "name" }
         },
         {
           "key": "managerId",
-          "label": "Manager (employee ID)",
-          "type": "text"
+          "label": "Reports to",
+          "type": "select",
+          "optionsFrom": { "api": "workspace", "endpoint": "/employees", "value": "id", "label": "firstName + lastName" }
         },
         {
           "key": "dateOfJoining",
