@@ -16,6 +16,7 @@ export default function Page() {
       permission="workspace.orgStructure"
       title="Teams"
       endpoint={"/teams"}
+      detailHref={(row) => `/dashboard/workspace/teams/${row.id}`}
       columns={[
         {
           "key": "name",
