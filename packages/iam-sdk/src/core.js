@@ -192,8 +192,12 @@ export function buildSidebar(nav, { product } = {}) {
 }
 
 /** The first route this principal can actually land on — where "/" should go. */
-export function defaultRoute(nav) {
-  const groups = buildSidebar(nav);
+// MUST be scoped to the app's product. Unscoped it returns the first route
+// across EVERY product the principal can see, and each app only ships one — so
+// for anyone with more than one product it hands back a route this app has no
+// page for, and the post-login redirect lands on a 404.
+export function defaultRoute(nav, { product } = {}) {
+  const groups = buildSidebar(nav, { product });
   return groups.length ? groups[0].pages[0].route : null;
 }
 

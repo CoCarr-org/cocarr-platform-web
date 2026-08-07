@@ -28,7 +28,11 @@ export function DashboardShell({
   // guaranteed 401 on every cold load and trip the session-expiry handler.
   return (
     <RequireAuth fallback={loading}>
-      <NavigationProvider fallback={loading} errorFallback={onError}>
+      {/* The product goes on the PROVIDER, not just the sidebar. The navigation
+          payload covers every product this principal can see, and each app ships
+          one — so anything reading it unscoped gets routes this app has no page
+          for. Setting it here makes scoping the default for every hook below. */}
+      <NavigationProvider product={product} fallback={loading} errorFallback={onError}>
         <div className="flex h-screen overflow-hidden">
           <Sidebar product={product} label={label} logoSrc={logoSrc} onSignOut={onSignOut} />
           <main className="flex-1 bg-[#F5F5F5] overflow-y-auto">{children}</main>
