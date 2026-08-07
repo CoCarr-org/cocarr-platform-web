@@ -56,6 +56,7 @@ export default function Page() {
         permission="workspace.recruitment"
         searchPlaceholder="Search candidates"
         endpoint="/candidates"
+        detailHref={(row) => `/dashboard/workspace/candidates/${row.id}`}
         createLabel="+ Add Candidate"
         columns={[
           { key: 'firstName', label: 'First' },

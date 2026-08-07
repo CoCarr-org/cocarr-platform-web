@@ -1,5 +1,6 @@
 'use client'
 import React, { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@cocarr/api-sdk'
 import { InfoToast, ErrorToast } from '@cocarr/notifications'
 import { Popup, Pagination } from '@cocarr/ui'
@@ -14,6 +15,17 @@ import { useCan } from '@cocarr/iam-sdk'
 // field config here rather than its own bespoke screen.
 //
 // field: { key, label, type: text|textarea|number|select|boolean|date, options?, required?, hideInTable? }
+
+// PERMISSION IS NOT THE ONLY GATE. `useCan` answers "may this admin edit rows
+// of this kind"; an endpoint can additionally refuse ONE row — the platform
+// owner's employee record is the live case, and the workspace API answers 409
+// on any write to it. Endpoints that have such a rule return `actions` per row
+// saying what they will accept.
+//
+// A row with no `actions` is not restricted: most endpoints have no per-row
+// rule and send nothing, and defaulting to "denied" there would blank out the
+// buttons on every screen in the app. Absence means "no opinion", never "no".
+const rowAllows = (row, action) => row?.actions?.[action] !== false
 
 export default function ResourceManager({
   endpoint,
@@ -34,6 +46,17 @@ export default function ResourceManager({
   // Required in practice: omitting it shows every control to everyone, which is
   // only ever right for a screen with no write actions at all.
   permission,
+  // `(row) => href` — turns the FIRST column into a link to that row's detail
+  // page. Optional, because most screens here are settings tables where the
+  // edit dialog already shows every field a detail page could; a link to a
+  // thinner copy of the dialog is worse than no link.
+  //
+  // Only the first cell is the link, not the whole row: a row-wide click
+  // target sits on top of Edit and Delete, and a mis-aimed click that
+  // navigates away from a list somebody is working through is exactly the
+  // annoyance a detail page is supposed to remove. It also keeps the target a
+  // real anchor, so middle-click and "open in new tab" work.
+  detailHref,
 }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -208,14 +231,30 @@ export default function ResourceManager({
             {!loading && rows.length === 0 && <tr><td colSpan={columns.length + 1} className='px-4 py-4 text-[#757575]'>{emptyText}</td></tr>}
             {!loading && rows.map((row) => (
               <tr key={row.id} className='border-b border-gray-100 last:border-b-0'>
-                {columns.map((c) => (
-                  <td key={c.key} className='px-4 py-3 align-top'>{c.render ? c.render(row) : renderCell(row, c.key)}</td>
-                ))}
+                {columns.map((c, i) => {
+                  const cell = c.render ? c.render(row) : renderCell(row, c.key)
+                  return (
+                    <td key={c.key} className='px-4 py-3 align-top'>
+                      {detailHref && i === 0
+                        ? (
+                          <Link href={detailHref(row)} className='font-semibold text-[#252525] hover:underline'>
+                            {/* An empty first cell would render a zero-width link nobody
+                                can click, so fall back to something aimable. */}
+                            {cell || 'View'}
+                          </Link>
+                        )
+                        : cell}
+                    </td>
+                  )
+                })}
                 {anyRowAction && (
                   <td className='px-4 py-3 whitespace-nowrap text-right'>
                     {renderRowExtra?.(row, load)}
-                    {allowUpdate && <button type='button' className='text-xs font-semibold px-3 py-1 hover:bg-[#f3f3f3] rounded-md' onClick={() => setEditing(row)}>Edit</button>}
-                    {allowDelete && <button type='button' className='text-xs font-semibold px-3 py-1 text-red-600 hover:bg-red-50 rounded-md' onClick={() => setDeleting(row)}>Delete</button>}
+                    {allowUpdate && rowAllows(row, 'canEdit') && <button type='button' className='text-xs font-semibold px-3 py-1 hover:bg-[#f3f3f3] rounded-md' onClick={() => setEditing(row)}>Edit</button>}
+                    {allowDelete && rowAllows(row, 'canDelete') && <button type='button' className='text-xs font-semibold px-3 py-1 text-red-600 hover:bg-red-50 rounded-md' onClick={() => setDeleting(row)}>Delete</button>}
+                    {row.actions?.restrictedReason && (
+                      <span className='text-[11px] text-[#959595]' title={row.actions.restrictedReason}>Protected</span>
+                    )}
                   </td>
                 )}
               </tr>

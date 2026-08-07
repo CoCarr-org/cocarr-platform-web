@@ -16,6 +16,7 @@ export default function Page() {
       permission="workspace.employees"
       title="Employees"
       endpoint={"/employees"}
+      detailHref={(row) => `/dashboard/workspace/employees/${row.id}`}
       columns={[
         {
           "key": "employeeCode",

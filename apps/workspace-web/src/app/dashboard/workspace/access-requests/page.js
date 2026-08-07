@@ -16,6 +16,7 @@ export default function Page() {
       permission="workspace.accessRequests"
       title="Access Requests"
       endpoint={"/access-requests"}
+      detailHref={(row) => `/dashboard/workspace/access-requests/${row.id}`}
       columns={[
         {
           "key": "employeeId",
