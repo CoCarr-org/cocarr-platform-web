@@ -29,6 +29,28 @@ const ACTIONS = ['read', 'create', 'update', 'delete']
 const ACTION_LABEL = { read: 'R', create: 'C', update: 'U', delete: 'D' }
 const PAGE = 500
 
+// Department labels for the role list. A role carries its department as a CODE
+// so IAM holds no cross-service foreign key into Workspace; this maps the code
+// back to something readable without either service depending on the other.
+//
+// ACCESS IS THE ROLE, NOT THE ROLE × DEPARTMENT. The department groups the list
+// so an administrator can ask "what may Operations do?" and read the answer in
+// one place — it does not narrow a grant. A role already encodes team AND level
+// (operations-manager IS "Operations, at manager level"), so scoping by
+// department as well would re-split what the model deliberately joined and give
+// two places to define one thing.
+const DEPARTMENTS = {
+  EXEC: 'Executive',
+  TECH: 'Technology',
+  OPS: 'Operations',
+  SUP: 'Customer Support',
+  FIN: 'Finance',
+  GRW: 'Growth & Marketing',
+  RSK: 'Risk & Compliance',
+  PPL: 'People & Culture',
+}
+const DEPT_ORDER = Object.keys(DEPARTMENTS)
+
 const errMsg = (e, fallback) => e?.response?.data?.error?.message || e?.response?.data?.error || fallback
 
 export default function RolePermissions() {
@@ -109,6 +131,21 @@ export default function RolePermissions() {
 
   const dirty = useMemo(() => held.size !== baseline.size
     || [...held].some((id) => !baseline.has(id)), [held, baseline])
+
+  // Grouped by department, in org order rather than alphabetically — the list
+  // then reads the way the company is shaped. Anything with no department (the
+  // baseline `employee` role belongs to everyone) falls to the end under its
+  // own heading instead of being hidden.
+  const rolesByDept = useMemo(() => {
+    const by = {}
+    ;(roles || []).forEach((r) => {
+      const code = r.department && DEPARTMENTS[r.department] ? r.department : '_none'
+      ;(by[code] = by[code] || []).push(r)
+    })
+    Object.values(by).forEach((l) => l.sort((a, b) => a.name.localeCompare(b.name)))
+    return [...DEPT_ORDER.filter((c) => by[c]).map((c) => [c, by[c]]),
+      ...(by._none ? [['_none', by._none]] : [])]
+  }, [roles])
 
   const toggle = (permission) => {
     if (!permission || !canEdit) return
@@ -195,19 +232,24 @@ export default function RolePermissions() {
         <div>
           <h3 className='text-xs uppercase tracking-tight text-[#757575] font-semibold mb-2'>Roles</h3>
           {roles === null && <p className='text-sm text-[#757575]'>Loading…</p>}
-          {roles && (
-            <div className='bg-white border border-gray-100 rounded-md divide-y divide-gray-50 overflow-hidden'>
-              {roles.map((r) => (
-                <button key={r.id} type='button' onClick={() => openRole(r)}
-                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${selected?.id === r.id ? 'bg-gray-50' : ''}`}>
-                  <p className='text-sm font-semibold'>{r.name}</p>
-                  <p className='text-[11px] text-[#959595]'>
-                    {r.key}{r.isSuperAdmin ? ' · super admin' : ''}
-                  </p>
-                </button>
-              ))}
+          {roles && rolesByDept.map(([code, list]) => (
+            <div key={code} className='mb-3'>
+              <p className='text-[11px] uppercase tracking-tight text-[#959595] font-semibold px-1 mb-1'>
+                {DEPARTMENTS[code] || 'All departments'}
+              </p>
+              <div className='bg-white border border-gray-100 rounded-md divide-y divide-gray-50 overflow-hidden'>
+                {list.map((r) => (
+                  <button key={r.id} type='button' onClick={() => openRole(r)}
+                    className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 ${selected?.id === r.id ? 'bg-gray-50' : ''}`}>
+                    <p className='text-sm font-semibold'>{r.name}</p>
+                    <p className='text-[11px] text-[#959595]'>
+                      {r.key}{r.isSuperAdmin ? ' · super admin' : ''}
+                    </p>
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
+          ))}
         </div>
 
         <div>
