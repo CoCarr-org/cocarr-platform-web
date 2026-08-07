@@ -261,6 +261,19 @@ function Detail({ employee, onChanged }) {
     } catch (e) { ErrorToast(errMsg(e, 'Could not advance onboarding')) } finally { setBusy(false) }
   }
 
+  // Hand it to the approval chain. From here HR cannot approve it themselves —
+  // whoever the chain names signs it in Approvals, and only then does the
+  // employee code and staff login get issued.
+  const submit = async () => {
+    setBusy(true)
+    try {
+      await workspaceApi().post(`/onboarding/${employee.id}/submit`, {})
+      InfoToast('Submitted for approval')
+      await load()
+      onChanged?.()
+    } catch (e) { ErrorToast(errMsg(e, 'Could not submit for approval')) } finally { setBusy(false) }
+  }
+
   const approve = async () => {
     setBusy(true)
     try {
@@ -312,7 +325,36 @@ function Detail({ employee, onChanged }) {
               </button>
             )}
 
-            {atReview && (
+            {/* At review the record goes to the approval chain. The server
+                decides which of these is offered (canSubmit / canApprove) — the
+                client never re-derives it, so this cannot disagree with what the
+                API would accept. */}
+            {atReview && state.canSubmit && (
+              <>
+                <button type='button' onClick={submit} disabled={busy} className='btn-md'>
+                  Submit for approval
+                </button>
+                <p className='text-[11px] text-[#959595] basis-full'>
+                  This hands the record to the approval chain. You cannot approve it yourself —
+                  whoever the chain names signs it under <strong>Approvals</strong>, and the employee
+                  code and staff login are issued then.
+                </p>
+              </>
+            )}
+
+            {atReview && state.approval?.status === 'pending' && (
+              <p className='text-xs text-amber-700'>
+                Waiting for approval. It is in the approver&apos;s inbox now.
+              </p>
+            )}
+
+            {atReview && state.approval?.status === 'rejected' && (
+              <p className='text-xs text-red-700 basis-full'>
+                This was rejected. Fix what was flagged, then submit it again.
+              </p>
+            )}
+
+            {atReview && state.canApprove && (
               <>
                 <label className='block'>
                   <span className='block text-[11px] text-[#757575] mb-1'>Date of joining (optional)</span>
@@ -320,13 +362,21 @@ function Detail({ employee, onChanged }) {
                     className='border border-gray-200 rounded-md px-3 py-2 text-sm outline-none focus:border-gray-400' />
                 </label>
                 <button type='button' onClick={approve} disabled={busy} className='btn-md'>
-                  Approve &amp; issue login
+                  Issue code &amp; login
                 </button>
                 <p className='text-[11px] text-[#959595] basis-full'>
-                  Approving mints the employee code, creates their Firebase staff login and returns a
-                  password-reset link <strong>once</strong>. Defaults to today if you leave the date blank.
+                  Approved by the chain. This mints the employee code, creates their Firebase staff
+                  login and returns a password-reset link <strong>once</strong>. Defaults to today if
+                  you leave the date blank.
                 </p>
               </>
+            )}
+
+            {atReview && state.approval?.status === 'unknown' && (
+              <p className='text-xs text-red-700 basis-full'>
+                Could not reach IAM to check the approval state. Nothing can be issued until it
+                answers — approving is refused rather than guessed at.
+              </p>
             )}
           </div>
         )}

@@ -171,6 +171,11 @@ export const NAV_MODULES = [
       // /dashboard/admin-roles route still resolves (see the router) so
       // bookmarks land here rather than 404ing.
       { label: 'Roles & Permissions', route: '/dashboard/teams-access', page: 'TeamsAccess', module: 'roles' },
+      // What each role may DO, as opposed to who holds it (teams-access).
+      // Grants only — the module/screen list is generated from this file and
+      // seeded, never edited at runtime, so a role can never be given a screen
+      // with no page behind it.
+      { label: 'Role Permissions', route: '/dashboard/platform/roles', page: 'RolePermissions', module: 'roles' },
       { label: 'Admin Activity Logs', route: '/dashboard/admin-activity', page: 'AdminActivityLogs', module: 'auditLogs' },
       { label: 'Login History',       route: '/dashboard/admin-logins',   page: 'LoginHistory', module: 'security' },
       { label: 'Audit Logs',          route: '/dashboard/audit',          page: 'Audit', module: 'auditLogs' },
@@ -249,6 +254,11 @@ export const NAV_MODULES = [
       // (onboardingRouter uses requirePermission('employees', …)), not because
       // it is a variation on the employee list.
       { label: 'Onboarding', route: '/dashboard/workspace/onboarding', page: 'EmployeeOnboarding' },
+      // The approver's side of the same lifecycle. Kept under `employees`
+      // rather than given its own module because an approver's right to sign
+      // is decided per STEP by the IAM chain, not by a permission on a screen —
+      // the page is an inbox, and it shows whatever that principal may act on.
+      { label: 'Approvals', route: '/dashboard/workspace/approvals', page: 'WorkspaceApprovals' },
     ],
   },
   {
