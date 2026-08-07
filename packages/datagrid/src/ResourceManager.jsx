@@ -228,6 +228,11 @@ export default function ResourceManager({
         <RecordPopup
           row={editing === 'new' ? null : editing}
           fields={fields}
+          // Resolved options are PASSED IN. RecordPopup is a separate top-level
+          // component, so it cannot see ResourceManager's scope — referencing
+          // the resolver directly compiled fine and then threw the moment the
+          // dialog opened.
+          optionsFor={optionsFor}
           submitting={submitting}
           onClose={() => setEditing(null)}
           onSubmit={onSubmit}
@@ -244,7 +249,11 @@ export default function ResourceManager({
   )
 }
 
-const RecordPopup = ({ row, fields, submitting, onClose, onSubmit }) => {
+// `optionsFor` defaults to the field's own static options, so a caller that does
+// not pass it still renders — the prop is a resolver, not a requirement.
+const RecordPopup = ({
+  row, fields, submitting, onClose, onSubmit, optionsFor = (f) => f.options || [],
+}) => {
   const [values, setValues] = useState(() => {
     const init = {}
     fields.forEach((f) => {
