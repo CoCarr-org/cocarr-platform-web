@@ -224,13 +224,21 @@ const PersonLine = ({ user, onOpenUser }) => {
 // Referrals in both directions, plus the wallet. Both directions matter and are
 // meaningless apart: who brought this person in, and who they have brought in
 // since. The wallet sits underneath because every referral reward lands there.
+// `onOpenLedger` is optional and currently unset: the platform-wide wallet
+// LEDGER screen (legacy `finance-wallet-transactions`) was not migrated, and the
+// link pointed at a route that does not exist, so the button 404'd. It is not
+// the same screen as Wallets — that answers "what is this balance?", the ledger
+// answers "why?" — so pointing it there would give a different answer to the
+// question being asked. The link returns when the ledger screen does.
 const ReferralPanel = ({ referrals, wallet, onOpenUser, onOpenLedger }) => (
   <div className='bg-white border border-gray-100 rounded-md p-5 mb-4'>
     <div className='flex items-center justify-between gap-3 mb-3'>
       <p className='font-semibold text-sm'>Referrals &amp; wallet</p>
-      <button onClick={onOpenLedger} className='text-[11px] font-semibold text-[#757575] hover:text-[#ECC032]'>
-        Full ledger →
-      </button>
+      {onOpenLedger && (
+        <button onClick={onOpenLedger} className='text-[11px] font-semibold text-[#757575] hover:text-[#ECC032]'>
+          Full ledger →
+        </button>
+      )}
     </div>
 
     {!referrals ? (
@@ -919,7 +927,6 @@ export default function UserDetailPage() {
         referrals={referrals}
         wallet={wallet}
         onOpenUser={(uid) => router.push(`/dashboard/users/${uid}`)}
-        onOpenLedger={() => router.push('/dashboard/finance/wallet-transactions')}
       />
 
       {/* ── 6. The decision ── */}
