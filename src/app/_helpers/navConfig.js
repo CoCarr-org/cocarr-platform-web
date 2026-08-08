@@ -323,6 +323,10 @@ export const NAV_MODULES = [
   {
     key: 'recruitment', label: 'Recruitment', icon: 'people', module: 'recruitment',
     pages: [
+      // Job postings — bespoke page (Active / Waiting for approval / Closed tabs,
+      // create/edit, submit/approve). Rendered by apps/workspace-web's file-based
+      // route; this entry exists so the nav + IAM sub-module are seeded.
+      { label: 'Jobs', route: '/dashboard/workspace/jobs', page: 'JobPostings' },
       {
         label: 'Candidates', route: '/dashboard/workspace/candidates',
         list: {

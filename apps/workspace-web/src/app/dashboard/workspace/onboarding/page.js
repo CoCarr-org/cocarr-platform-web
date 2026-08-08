@@ -441,9 +441,18 @@ export default function EmployeeOnboarding() {
                   onClick={() => setSelected(e)}
                   className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${selected?.id === e.id ? 'bg-gray-50' : ''}`}
                 >
-                  <p className='text-sm font-semibold'>{fullName(e)}</p>
+                  <div className='flex items-center justify-between gap-2'>
+                    <p className='text-sm font-semibold'>{fullName(e)}</p>
+                    {/* A freshly-hired employee sits at the profile stage — "not
+                        started" in the spec's words — until someone opens their
+                        onboarding and advances it. */}
+                    {e.onboardingStage === 'profile'
+                      ? <span className='text-[10px] font-semibold text-amber-600 shrink-0'>Not started</span>
+                      : <span className='text-[10px] font-semibold text-[#252525] shrink-0'>Continue →</span>}
+                  </div>
                   <p className='text-[11px] text-[#959595]'>
                     {STAGE_LABEL[e.onboardingStage] || e.onboardingStage} · {e.email}
+                    {e.dateOfJoining ? ` · joins ${new Date(e.dateOfJoining).toLocaleDateString()}` : ''}
                   </p>
                 </button>
               ))}
