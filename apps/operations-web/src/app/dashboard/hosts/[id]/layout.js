@@ -6,8 +6,14 @@ import { apiErrorMessage } from '@cocarr/notifications'
 import { getValidDateFormat } from '@cocarr/shared-utils'
 import { NavigationTabBar, PageLayout } from '@cocarr/ui'
 import { Avatar, DetailHeader, ErrorState, Pill } from '@/app/_components/ui'
-import { hostKycState } from '@/app/_helpers/hostKyc'
 import { HostContext } from './_HostContext'
+
+// The host's own verification outcome — PAN + bank + KYC, decided on the
+// overview tab. Kept beside the pill it drives rather than in a shared helper:
+// it is three words used in one place, and hostKyc.js exists for a different
+// question (is the KYC check itself done) that the overview still asks.
+const HOST_PILL_TONE = { verified: 'good', rejected: 'bad', pending: 'warn' }
+const HOST_PILL_LABEL = { verified: 'Verified', rejected: 'Rejected', pending: 'Not verified' }
 
 // Host detail shell — identity, status and tabs.
 //
@@ -81,17 +87,18 @@ export default function HostDetailLayout({ children }) {
               <Pill tone={host.isActive === false ? 'bad' : 'good'}>
                 {host.isActive === false ? 'Inactive' : 'Active'}
               </Pill>
-              {/* NOT `host.kycVerified` — that column has never been written by
-                  anything, so this pill said "KYC pending" about every host on
-                  the platform, including the ones holding a verified Aadhaar and
-                  PAN. The real state is resolved from the USER's documents and
-                  arrives under `verification`; see _helpers/hostKyc.js, which is
-                  also what the panel below the fold reads, so the header and the
-                  section cannot disagree. */}
-              {(() => {
-                const kyc = hostKycState(host.verification)
-                return <Pill tone={kyc.tone}>{kyc.label}</Pill>
-              })()}
+              {/* THE HOST'S OWN VERIFICATION, which now exists as a stored
+                  decision (PAN + bank + KYC → Verify). This pill has been wrong
+                  twice: first it read `host.kycVerified`, a column nothing has
+                  ever written, so it said "KYC pending" about every host on the
+                  platform; then it read the KYC check alone, which is one third
+                  of what makes a host verified and left a host with an
+                  outstanding bank account looking done.
+                  It is the same value the Host decision panel shows, so the
+                  header and the section cannot disagree. */}
+              <Pill tone={HOST_PILL_TONE[host.verificationStatus] || 'warn'}>
+                {HOST_PILL_LABEL[host.verificationStatus] || 'Not verified'}
+              </Pill>
             </>
           ) : null}
           meta={host ? [
