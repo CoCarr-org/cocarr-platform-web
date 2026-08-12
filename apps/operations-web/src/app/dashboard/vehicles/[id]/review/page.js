@@ -92,20 +92,53 @@ export default function VehicleReview() {
     }
   }
 
-  const reviewDoc = (docType, status) => {
+  const decide = (path, body, message) =>
+    act(() => coreApi().post(`/admin/vehicle/${id}/${path}`, body), message)
+
+  // Verify / Unverify / Reject on one chain section (photos | rc). Same three
+  // decisions and the same vocabulary as the user and host screens.
+  //
+  // UNVERIFY did not exist here: the only way out of `verified` was to REJECT,
+  // which is a decision against the host with a reason they are shown. An admin
+  // undoing their own mis-click had to send the host a rejection to do it.
+  const decideSection = (sectionKey, decision, label) => {
     let reason = null
-    if (status === 'rejected') {
-      reason = window.prompt(`Why is the ${docType.toUpperCase()} being rejected?`)
-      if (!reason || !reason.trim()) return
+    if (decision === 'rejected') {
+      const why = window.prompt(`Why is the ${label.toLowerCase()} being rejected? The host sees this.`)
+      if (why === null) return undefined
+      if (!why.trim()) return undefined
+      reason = why.trim()
     }
+    const done = { verified: 'verified', unverified: 'moved back to pending', rejected: 'rejected' }[decision]
     return act(
-      () => coreApi().post(`/admin/vehicle/${id}/document/${docType}`, { status, reason }),
-      `${docType.toUpperCase()} marked ${status}`,
+      () => coreApi().post(`/admin/vehicle-verification/${id}/section/${sectionKey}`, { decision, reason }),
+      `${label} ${done}`,
     )
   }
 
-  const decide = (path, body, message) =>
-    act(() => coreApi().post(`/admin/vehicle/${id}/${path}`, body), message)
+  // Offered only where the transition means something. Unverify is neutral, not
+  // red — it is a correction, not a decision against anybody.
+  const sectionButtons = (sectionKey, label, sec) => {
+    if (!canUpdate || !sec) return null
+    const submitted = sec.status && sec.status !== 'missing'
+    if (!submitted) return null
+    return (
+      <div className='flex gap-2'>
+        {sec.status !== 'verified' && (
+          <button disabled={busy} onClick={() => decideSection(sectionKey, 'verified', label)}
+            className='text-xs px-2.5 py-1 rounded bg-green-600 text-white disabled:opacity-40'>Verify</button>
+        )}
+        {sec.status === 'verified' && (
+          <button disabled={busy} onClick={() => decideSection(sectionKey, 'unverified', label)}
+            className='text-xs px-2.5 py-1 rounded border border-gray-300 text-gray-700 disabled:opacity-40'>Unverify</button>
+        )}
+        {sec.status !== 'rejected' && (
+          <button disabled={busy} onClick={() => decideSection(sectionKey, 'rejected', label)}
+            className='text-xs px-2.5 py-1 rounded border border-red-300 text-red-600 disabled:opacity-40'>Reject</button>
+        )}
+      </div>
+    )
+  }
 
   if (loading) return <div className='p-6 text-sm text-gray-500'>Loading vehicle…</div>
   if (error) {
@@ -121,6 +154,8 @@ export default function VehicleReview() {
   const status = data?.approvalStatus || 'pending'
   const actions = allowedActions(status)
   const outstanding = review.outstanding || []
+  // One row per section, from the server — the same list the gate refuses with.
+  const sectionOf = (key) => (review.sections || []).find((sec) => sec.key === key)
   const advisory = review.outstandingAdvisory || []
   const bank = review.bank
   const host = review.host
@@ -173,19 +208,49 @@ export default function VehicleReview() {
         </div>
       )}
 
+      {/* ── Car photos ──
+          NOTHING REVIEWED THESE BEFORE. A car went live on whatever the host
+          uploaded, and these are the pictures a rider actually decides on. They
+          can be honest photos of the right car and still be unusable: a stock
+          shot, a night photo of a number plate, three angles of one door.
+          Distinct from the physical visit, which answers whether the car exists
+          and the host is who they say — this answers whether what a rider sees
+          is a fair representation of it. */}
+      <div className='border border-gray-200 rounded-lg p-4 bg-white'>
+        <div className='flex items-center justify-between gap-3 mb-2'>
+          <div>
+            <h3 className='font-medium text-sm'>Car photos</h3>
+            <p className='text-xs text-gray-500'>
+              What the listing shows. Check they are of this car, legible, and not duplicates.
+            </p>
+          </div>
+          <div className='flex items-center gap-3'>
+            <Pill state={sectionOf('photos')?.status || 'pending'} />
+            {sectionButtons('photos', 'Car photos', sectionOf('photos'))}
+          </div>
+        </div>
+        {sectionOf('photos')?.reason && (
+          <p className='text-xs text-red-600 mb-2'>{sectionOf('photos').reason}</p>
+        )}
+        {(data?.images || []).filter((img) => !img.isDeleted).length ? (
+          <div className='flex flex-wrap gap-3'>
+            {(data.images || []).filter((img) => !img.isDeleted).map((img) => (
+              <DocumentThumb key={img.id || img.url} src={photoUrl(img.url)} label={img.type || 'Photo'} />
+            ))}
+          </div>
+        ) : (
+          <p className='text-xs text-gray-500'>
+            No photos on this listing. There is nothing to verify — the host has to add them.
+          </p>
+        )}
+      </div>
+
       {/* ── Documents ── */}
       <div className='grid md:grid-cols-2 gap-4'>
         <Card
           title='Vehicle RC'
           pill={<Pill state={docState(review.rc)} />}
-          aside={canUpdate && review.rc ? (
-            <div className='flex gap-2'>
-              <button disabled={busy} onClick={() => reviewDoc('rc', 'verified')}
-                className='text-xs px-2.5 py-1 rounded bg-green-600 text-white disabled:opacity-40'>Verify</button>
-              <button disabled={busy} onClick={() => reviewDoc('rc', 'rejected')}
-                className='text-xs px-2.5 py-1 rounded border border-red-300 text-red-600 disabled:opacity-40'>Reject</button>
-            </div>
-          ) : null}
+          aside={sectionButtons('rc', 'RC', sectionOf('rc'))}
         >
           <DocumentThumb src={photoUrl(review.rc?.frontImageKey || data?.vehicleRcImage)} label='RC' />
           <Row label='RC number' value={review.rc?.documentNumber || data?.vehicleRcNumber} />
@@ -194,16 +259,18 @@ export default function VehicleReview() {
           {!review.rc && <p className='text-xs text-gray-500'>The host has not submitted an RC for this vehicle.</p>}
         </Card>
 
+        {/* PAN NO LONGER GATES THIS CAR — it moved to the host chain, where
+            withholding it withholds MONEY rather than a listing. It is shown
+            here because a reviewer looking at a car still wants to know whether
+            its host can be paid, but it is decided on the host screen: two
+            screens deciding one document is how it gets approved from whichever
+            one happens to show less evidence. */}
         <Card
           title='Host PAN'
           pill={<Pill state={docState(review.pan)} />}
-          aside={canUpdate && review.pan ? (
-            <div className='flex gap-2'>
-              <button disabled={busy} onClick={() => reviewDoc('pan', 'verified')}
-                className='text-xs px-2.5 py-1 rounded bg-green-600 text-white disabled:opacity-40'>Verify</button>
-              <button disabled={busy} onClick={() => reviewDoc('pan', 'rejected')}
-                className='text-xs px-2.5 py-1 rounded border border-red-300 text-red-600 disabled:opacity-40'>Reject</button>
-            </div>
+          aside={host?.userId ? (
+            <Link href={`/dashboard/hosts/${review.hostId || ''}`}
+              className='text-xs text-blue-600 hover:underline'>Decide on the host →</Link>
           ) : null}
         >
           <DocumentThumb src={photoUrl(review.pan?.imageKey)} label='PAN' />
