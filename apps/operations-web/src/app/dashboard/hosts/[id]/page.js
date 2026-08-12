@@ -3,12 +3,13 @@ import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { coreApi } from '@cocarr/api-sdk'
+import { apiErrorMessage, InfoToast, ErrorToast } from '@cocarr/notifications'
+import { useCan } from '@cocarr/iam-sdk'
 import { getValidDateFormat } from '@cocarr/shared-utils'
 import {
   Explainer, Field, FieldGrid, LoadingBlock, Pill, SectionCard, Stat, StatRow,
 } from '@/app/_components/ui'
 import { DOC_LABEL, DOC_PILL } from '@/app/_helpers/userStatus'
-import { hostKycState } from '@/app/_helpers/hostKyc'
 import { useHost } from './_HostContext'
 
 // Host overview — identity, what they are owed against, and how they are paid.
@@ -52,53 +53,6 @@ const NameMatch = ({ account }) => {
     : <Pill tone='bad'>Name mismatch</Pill>
 }
 
-// A document's state, from the document ROW when there is one.
-//
-// `null` (never submitted) is deliberately distinct from `pending` (submitted,
-// awaiting review). The old screen collapsed both into "Not verified", which
-// tells an admin to chase a host who has already sent everything. The boolean
-// is only a fallback for a payload that predates the document tables.
-const docStatus = (doc, verifiedFlag) => {
-  if (doc?.status) return doc.status
-  if (verifiedFlag) return 'verified'
-  return 'missing'
-}
-
-// Is this host's KYC done — stated, not left to be inferred from two cards.
-//
-// The tone carries the answer at a glance and the sentence carries what is
-// outstanding, because "KYC pending" on its own sends an admin into the
-// documents to find out which one and why.
-const KycVerdict = ({ verification }) => {
-  const { tone, label, detail } = hostKycState(verification)
-  const skin = {
-    good: 'border-green-100 bg-green-50 text-green-800',
-    warn: 'border-amber-100 bg-amber-50 text-amber-800',
-    bad: 'border-red-100 bg-red-50 text-red-800',
-  }[tone]
-  return (
-    <div className={`rounded-md border px-4 py-3 ${skin}`}>
-      <p className='text-sm font-semibold'>{label}</p>
-      <p className='text-xs mt-0.5 opacity-90'>{detail}</p>
-    </div>
-  )
-}
-
-const DocumentSummary = ({ label, status, number, name, note, mismatch }) => (
-  <div className='rounded-md border border-gray-100 bg-[#fafafa] p-4'>
-    <div className='flex items-center justify-between gap-2 mb-2'>
-      <p className='text-[11px] font-semibold uppercase tracking-tight text-[#757575]'>{label}</p>
-      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${DOC_PILL[status] || DOC_PILL.missing}`}>
-        {DOC_LABEL[status] || DOC_LABEL.missing}
-      </span>
-    </div>
-    <p className='text-sm font-medium text-[#454545] font-mono break-all'>{number || '—'}</p>
-    <p className='text-xs text-[#757575] capitalize'>{name || 'No name on file'}</p>
-    {mismatch && <p className='text-[11px] text-red-600 mt-1'>Name does not match the profile</p>}
-    {note && <p className='text-[10px] text-[#959595] mt-1'>{note}</p>}
-  </div>
-)
-
 const PayoutAccount = ({ account, dormant }) => (
   <div className={`rounded-md border p-4 ${dormant ? 'border-gray-100 bg-[#fafafa]' : 'border-gray-200 bg-white'}`}>
     <div className='flex items-center justify-between gap-3 mb-3 flex-wrap'>
@@ -140,14 +94,163 @@ const PayoutAccount = ({ account, dormant }) => (
   </div>
 )
 
+// What each host section is actually FOR. The label alone ("PAN") says what it
+// is, not why a host is blocked on it — and "why" is what an admin arrives with.
+const SECTION_HINT = {
+  pan: 'The tax identity required to pay them at all',
+  bank: 'Where settlements are sent',
+  kycCheck: 'Who they are — shared with the rider profile',
+}
+
+// The answer first, the sections under it. Same shape as the user screen's, so
+// the two read alike.
+const HostVerdict = ({ chain, status }) => {
+  const tone = status === 'verified' ? 'good'
+    : status === 'rejected' ? 'bad'
+      : chain?.complete ? 'ready' : 'warn'
+  const skin = {
+    good: 'border-green-100 bg-green-50 text-green-800',
+    ready: 'border-green-100 bg-green-50 text-green-800',
+    warn: 'border-amber-100 bg-amber-50 text-amber-800',
+    bad: 'border-red-100 bg-red-50 text-red-800',
+  }[tone]
+  const label = status === 'verified' ? 'Host verified'
+    : status === 'rejected' ? 'Host rejected'
+      : chain?.complete ? 'Ready to verify' : 'Host not verified'
+  const detail = status === 'verified' ? 'PAN, bank and KYC are all verified — payouts can run.'
+    : status === 'rejected' ? 'This host was rejected. They are shown the reason below.'
+      : chain?.complete ? 'Every section is verified. Press Verify host below to allow payouts.'
+        : `${(chain?.outstanding || []).join(' · ') || 'Nothing submitted yet'}.`
+  return (
+    <div className={`rounded-md border px-4 py-3 ${skin}`}>
+      <p className='text-sm font-semibold'>{label}</p>
+      <p className='text-xs mt-0.5 opacity-90'>{detail}</p>
+    </div>
+  )
+}
+
 export default function HostOverview() {
   const { id } = useParams()
-  const { host, loading } = useHost()
+  const { host, loading, reload } = useHost()
 
   // Commission is per-host and versioned (start/end dated), so what a host is
   // actually on cannot be read off the host row. It is its own admin endpoint.
   const [commissions, setCommissions] = useState([])
   const [commissionError, setCommissionError] = useState('')
+
+  // The PAN + bank + KYC chain. Read from the server rather than derived here,
+  // so this screen and the gate that refuses a Verify quote the same list.
+  const [chain, setChain] = useState(null)
+  const [chainError, setChainError] = useState('')
+  const [busy, setBusy] = useState('')
+
+  // A PERMISSION, not a role — and `payouts`, not `users`: this screen decides
+  // whether somebody can be PAID, which is a finance judgement. The team that
+  // reviews a driving licence is not necessarily the team that should be
+  // clearing a bank account, and the server gates these routes the same way.
+  const mayDecide = useCan('operations.payouts.update')
+
+  const loadChain = useCallback(async () => {
+    if (!id) return
+    try {
+      const res = await coreApi().get(`/admin/host-verification/${id}`)
+      setChain(res.data)
+      setChainError('')
+    } catch (e) {
+      // Soft, like the commission load: a chain that will not load must not
+      // blank the payout details somebody came here to read. It leaves Verify
+      // unavailable, which is the safe direction.
+      setChain(null)
+      setChainError(apiErrorMessage(e, 'Verification status could not be loaded.'))
+    }
+  }, [id])
+
+  useEffect(() => { loadChain() }, [loadChain])
+
+  const run = async (label, fn) => {
+    setBusy(label)
+    try {
+      await fn()
+      await loadChain()
+      await reload?.()
+    } catch (e) {
+      ErrorToast(apiErrorMessage(e, `Could not ${label}`))
+    } finally { setBusy('') }
+  }
+
+  // Verify / Unverify / Reject on ONE section. Same three decisions and the same
+  // vocabulary as the user screen and the server.
+  const decideSection = (sectionKey, decision, label) => {
+    let reason = null
+    if (decision === 'rejected') {
+      const why = window.prompt(`Why is the ${label.toLowerCase()} not acceptable? The host sees this.`)
+      if (why === null) return undefined
+      if (!why.trim()) { ErrorToast('A reason is required'); return undefined }
+      reason = why.trim()
+    }
+    return run(`${decision} ${sectionKey}`, async () => {
+      await coreApi().post(`/admin/host-verification/${id}/section/${sectionKey}`, { decision, reason })
+      const done = { verified: 'verified', unverified: 'moved back to pending', rejected: 'rejected' }[decision]
+      InfoToast(`${label} ${done}`)
+    })
+  }
+
+  // The host-level decision, deliberately separate from the sections.
+  const hostDecision = (decision) => {
+    let reason = null
+    if (decision === 'rejected') {
+      const why = window.prompt('Why is this host being rejected? They are shown this.')
+      if (why === null) return undefined
+      if (!why.trim()) { ErrorToast('A reason is required'); return undefined }
+      reason = why.trim()
+    }
+    if (decision === 'verified'
+      && !window.confirm('Verify this host? Payouts to them can run once verified.')) return undefined
+    return run(decision, async () => {
+      await coreApi().post(`/admin/host-verification/${id}/decision`, { decision, reason })
+      InfoToast({
+        verified: 'Host verified — payouts can run',
+        unverified: 'Host moved back to pending — payouts are on hold',
+        rejected: 'Host rejected — they are shown the reason',
+      }[decision])
+    })
+  }
+
+  // Offered only where the transition means something, and Unverify is neutral
+  // rather than red: it is a correction, not a decision against the host.
+  const SectionActions = ({ sec }) => {
+    if (!mayDecide) return null
+    const submitted = sec.status && sec.status !== 'missing'
+    if (!submitted) {
+      return (
+        <p className='text-[11px] text-[#959595] mt-3'>
+          Nothing submitted yet — there is nothing to decide on.
+        </p>
+      )
+    }
+    return (
+      <div className='flex flex-wrap gap-2 mt-3'>
+        {sec.status !== 'verified' && (
+          <button disabled={!!busy} onClick={() => decideSection(sec.key, 'verified', sec.label)}
+            className='text-xs font-semibold border border-green-200 text-green-700 px-3 py-1.5 rounded-md disabled:opacity-50'>
+            Mark verified
+          </button>
+        )}
+        {sec.status === 'verified' && (
+          <button disabled={!!busy} onClick={() => decideSection(sec.key, 'unverified', sec.label)}
+            className='text-xs font-semibold border border-gray-200 text-[#454545] px-3 py-1.5 rounded-md disabled:opacity-50'>
+            Unverify
+          </button>
+        )}
+        {sec.status !== 'rejected' && (
+          <button disabled={!!busy} onClick={() => decideSection(sec.key, 'rejected', sec.label)}
+            className='text-xs font-semibold border border-red-200 text-red-600 px-3 py-1.5 rounded-md disabled:opacity-50'>
+            Reject
+          </button>
+        )}
+      </div>
+    )
+  }
 
   const loadCommissions = useCallback(async () => {
     if (!id) return
@@ -209,64 +312,125 @@ export default function HostOverview() {
         </FieldGrid>
       </SectionCard>
 
+      {/* ── Host verification: PAN + bank + KYC, and it DECIDES here ────────
+          This panel used to report and defer everything to the user profile.
+          That was right while the only decisions were about rider documents; it
+          is wrong now that being a host is its own chain. Being PAID asks for a
+          tax identity and an account, and neither is a rider question.
+
+          What still lives on the user profile: Aadhaar, the driving licence and
+          the photo match. Those gate BOOKING, not payouts. */}
       <SectionCard
-        title='Host KYC'
-        description='Aadhaar and PAN. That is the whole of it — a host lists a car, they do not drive it.'
+        title='Host verification'
+        description='PAN, bank account and KYC. All three, and only these three — a host lists a car, they do not drive it.'
         actions={host.userId ? (
           <Link href={`/dashboard/users/${host.userId}`} className='btn-md'>Open user profile</Link>
         ) : null}
       >
-        {/* THE ANSWER FIRST, THE EVIDENCE UNDER IT. An admin opens this section
-            to settle one question — is this host's KYC done? — and reading it
-            off two document cards is work they should not have to do. */}
         <div className='mb-4'>
-          <KycVerdict verification={v} />
+          <HostVerdict chain={chain} status={host.verificationStatus} />
         </div>
 
-        {/* ONE SUBMISSION COVERS BOTH ROLES, AND THE SCREEN SAYS SO.
-            Documents are keyed by USER id, and a host is a user — so somebody
-            who verified as a rider is already verified as a host. Without this
-            sentence an admin sees a verification panel on a second screen and
-            reasonably concludes a second submission is owed. */}
+        {/* ONE IDENTITY, AND THE SCREEN SAYS SO. KYC is the same check the user
+            profile shows, on the same row — verifying it here satisfies it
+            there, and vice versa. Without this sentence an admin sees the same
+            item on two screens and reasonably concludes there are two of them. */}
         <div className='mb-4'>
           <Explainer>
-            Shared with the user profile. The same person books rides and lists cars, so they verify
-            <strong> once</strong> — if these are verified here, nothing further is needed for hosting,
-            and vice versa.
+            KYC is shared with the rider profile — the same person, verified <strong>once</strong>.
+            A decision here shows up there immediately. PAN and the bank account belong to
+            hosting alone and are decided here.
           </Explainer>
         </div>
 
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-          <DocumentSummary
-            label='Aadhaar / KYC'
-            status={docStatus(v.documents?.kyc, v.kycVerified)}
-            number={v.kycNumber}
-            name={v.kycName}
-            note='Masked server-side — read the number off the scan.'
-          />
-          <DocumentSummary
-            label='PAN'
-            status={docStatus(v.documents?.pan, v.panVerified)}
-            number={v.panNumber}
-            name={v.panName}
-            note={v.panProviderStatus ? `Registry: ${v.panProviderStatus}` : null}
-            mismatch={v.panNameMatch === false}
-          />
-        </div>
+        {chainError ? (
+          <p className='text-sm text-amber-700'>{chainError}</p>
+        ) : (
+          <div className='space-y-3'>
+            {(chain?.sections || []).map((sec) => (
+              <div key={sec.key} className='rounded-md border border-gray-100 bg-[#fafafa] p-4'>
+                <div className='flex items-center justify-between gap-2 flex-wrap'>
+                  <div className='min-w-0'>
+                    <p className='text-[11px] font-semibold uppercase tracking-tight text-[#757575]'>
+                      {sec.label}
+                    </p>
+                    <p className='text-sm font-medium text-[#454545]'>{SECTION_HINT[sec.key] || ''}</p>
+                  </div>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${DOC_PILL[sec.status] || DOC_PILL.missing}`}>
+                    {DOC_LABEL[sec.status] || sec.status}
+                  </span>
+                </div>
+                {sec.reason && <p className='text-xs text-red-600 mt-2'>{sec.reason}</p>}
+                <SectionActions sec={sec} />
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
 
-        <div className='mt-4'>
-          {/* The decision lives on ONE screen. Two screens acting on the same
-              document is how a document gets approved from whichever one
-              happens to show less evidence — the same rule the vehicle
-              overview follows by deferring to /review.
-              THE LICENCE IS NOT MISSING FROM THIS SCREEN BY ACCIDENT — say so,
-              or its absence reads as a payload that failed to load. */}
-          <Explainer>
-            Decisions are made on the user profile, where the scans, the extracted values and the provider
-            verdict are shown together — along with the driving licence, which the person needs to
-            <strong> book</strong> a car and not to list one. This panel reports; it does not decide.
-          </Explainer>
-        </div>
+      {/* ── The host-level decision ─────────────────────────────────────────
+          Separate from the sections above, exactly as Approve is on the user
+          screen: verifying a PAN says the PAN is good, not "this host may now be
+          paid". One click must never silently mean the other. */}
+      <SectionCard
+        title='Host decision'
+        description='Verifying a host is what allows payouts. It is not implied by the sections above.'
+      >
+        {!mayDecide ? (
+          <p className='text-sm text-[#757575]'>You have view-only access to host verification.</p>
+        ) : (
+          <>
+            {host.verificationStatus === 'verified' ? (
+              <p className='text-xs text-green-700 font-semibold mb-3'>
+                This host is verified and can be paid.
+              </p>
+            ) : chain?.complete ? (
+              <p className='text-xs text-green-700 font-semibold mb-3'>
+                Every section is verified — this host is ready to verify. They stay unverified
+                until you press the button.
+              </p>
+            ) : (
+              <div className='mb-3'>
+                <p className='text-xs text-amber-700 font-semibold'>
+                  Verify is unavailable until every section is complete.
+                </p>
+                <ul className='mt-1.5 ml-4 list-disc'>
+                  {(chain?.outstanding || []).map((o) => (
+                    <li key={o} className='text-[11px] text-[#757575]'>{o}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {host.verificationReason && (
+              <p className='text-xs text-red-600 mb-3'>{host.verificationReason}</p>
+            )}
+            <div className='flex flex-wrap gap-2'>
+              {host.verificationStatus !== 'verified' && chain?.complete && (
+                <button disabled={!!busy} onClick={() => hostDecision('verified')}
+                  className='text-sm font-semibold bg-[#ECC032] text-black px-5 py-2 rounded-md disabled:opacity-50'>
+                  {busy === 'verified' ? '…' : 'Verify host'}
+                </button>
+              )}
+              {host.verificationStatus === 'verified' && (
+                <button disabled={!!busy} onClick={() => hostDecision('unverified')}
+                  className='text-sm font-semibold border border-gray-200 text-[#454545] px-5 py-2 rounded-md disabled:opacity-50'>
+                  Unverify
+                </button>
+              )}
+              {host.verificationStatus !== 'rejected' && (
+                <button disabled={!!busy} onClick={() => hostDecision('rejected')}
+                  className='text-sm font-semibold border border-red-200 text-red-600 px-5 py-2 rounded-md disabled:opacity-50'>
+                  Reject
+                </button>
+              )}
+            </div>
+            <p className='text-[11px] text-[#959595] mt-3'>
+              Unverify puts the host back to pending — a correction, and the host is told nothing.
+              Reject is a decision against, needs a reason, and the host is expected to act on it.
+              Both stop payouts.
+            </p>
+          </>
+        )}
       </SectionCard>
 
       <SectionCard
