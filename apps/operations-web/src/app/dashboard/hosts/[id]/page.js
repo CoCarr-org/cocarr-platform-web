@@ -24,15 +24,31 @@ import { useHost } from './_HostContext'
 // deciding where money goes.
 
 // A bank account is verified against the registry, and what comes back is the
-// REAL holder name. The host also types one in. A mismatch between them is the
-// single strongest fraud signal on this screen, so it is called out rather
-// than left for someone to spot by reading two adjacent fields.
+// REAL holder name plus the provider's own verdict on how well it matches the
+// name the host typed. A mismatch is the single strongest fraud signal on this
+// screen, so it is called out rather than left for somebody to spot by reading
+// two adjacent fields.
 const NameMatch = ({ account }) => {
+  // PREFER THE PROVIDER'S VERDICT. Cashfree returns `name_match_status` and a
+  // score, stored on the row — a real comparison that tolerates initials,
+  // ordering and honorifics. The string equality this used to do flags
+  // "RAJESH KUMAR" against "Rajesh Kumar S" as fraud, which is a false alarm
+  // on a screen whose whole job is to be believed.
+  const status = String(account.nameMatchStatus || '').toUpperCase()
+  if (status) {
+    const score = account.nameMatchScore != null ? ` (${account.nameMatchScore})` : ''
+    if (status.includes('NO_MATCH')) return <Pill tone='bad'>Name mismatch{score}</Pill>
+    if (status.includes('PARTIAL')) return <Pill tone='warn'>Partial name match{score}</Pill>
+    return <Pill tone='good'>Name matches{score}</Pill>
+  }
+
+  // Fallback for rows written before the provider fields were stored.
   const provided = (account.hostProvidedName || '').trim().toLowerCase()
   const actual = (account.accountHolderName || '').trim().toLowerCase()
   if (!provided || !actual) return null
-  if (provided === actual) return <Pill tone='good'>Name matches</Pill>
-  return <Pill tone='bad'>Name mismatch</Pill>
+  return provided === actual
+    ? <Pill tone='good'>Name matches</Pill>
+    : <Pill tone='bad'>Name mismatch</Pill>
 }
 
 // A document's state, from the document ROW when there is one.
@@ -79,6 +95,12 @@ const PayoutAccount = ({ account, dormant }) => (
           </Pill>
         )}
         {!dormant && <NameMatch account={account} />}
+        {/* Verified but not linked to the payment gateway = cannot actually be
+            paid. Settlement resolves these ids, so without them a settlement
+            fails at the transfer with the account looking perfectly fine. */}
+        {!dormant && !account.razorpayContactId && (
+          <Pill tone='warn'>Not linked for payout</Pill>
+        )}
       </div>
       {account.createdAt && (
         <span className='text-[11px] text-[#959595]'>Added {getValidDateFormat(account.createdAt)}</span>
@@ -89,8 +111,10 @@ const PayoutAccount = ({ account, dormant }) => (
       <Field label='IFSC' value={account.ifscCode} mono />
       <Field label='Holder name (bank)' value={account.accountHolderName} />
       <Field label='Holder name (host typed)' value={account.hostProvidedName} />
+      <Field label='Method' value={account.paymentMethod} />
+      <Field label='UPI id' value={account.upiId} capitalize={false} />
       <Field label='City' value={account.city} />
-      <Field label='Branch' value={account.branch} />
+      <Field label='Branch' value={account.branchName} />
     </FieldGrid>
   </div>
 )
