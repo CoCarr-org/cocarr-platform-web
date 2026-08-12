@@ -3,7 +3,7 @@ import { useState,useEffect } from 'react'
 import { Popup } from '@cocarr/ui'
 import { Input } from '@cocarr/forms'
 import { InfoToast } from '@cocarr/notifications'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { SortAsc, SortDesc } from 'lucide-react'
 
 export default function Brands() {
@@ -12,7 +12,7 @@ export default function Brands() {
     const [sort,setSort] = useState('name')
 
     async function getBrands(){
-        let res = await axios.get(`/brand`)
+        let res = await coreApi().get(`/brand`)
         setBrands(res.data)
     }
 
@@ -30,11 +30,11 @@ export default function Brands() {
             console.log('sbm',data)
             if(showManage.edit)
             {
-                res = await axios.put(`/brand/${data.id}`,{...data})  
+                res = await coreApi().put(`/brand/${data.id}`,{...data})  
             }
             else
             {
-                res = await axios.post(`/brand`,{...data}) 
+                res = await coreApi().post(`/brand`,{...data}) 
                 
             }
             if(res.data)
@@ -124,7 +124,7 @@ const ManageBrand = ({setShow,onSubmit,edit=false})=>
         async function getBrandInfo(){
             if(edit)
             {
-                let res = await axios.get(`${process.env.REACT_APP_BASE_URL}/brand/${edit}`)
+                let res = await coreApi().get(`/brand/${edit}`)
                 // console.log(res.data.data)
                 setBrand({id:res.data.id,name:res.data.name})
                 setLoading(false)

@@ -4,7 +4,7 @@ import { toast } from 'react-toastify'
 import { Popup } from '@cocarr/ui'
 import { Input } from '@cocarr/forms'
 import {InfoToast,ErrorToast} from '@cocarr/notifications'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { BiSort } from 'react-icons/bi'
 import { SortAsc, SortDesc } from 'lucide-react'
 import { getDateFormat, getDateTimeFormat, getTimeFormat } from '@cocarr/shared-utils'
@@ -15,7 +15,7 @@ export default function Cities() {
     const [sort,setSort] = useState('name')
 
     async function getCities(){
-        let res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/protection-plan`)
+        let res = await coreApi().get(`${process.env.NEXT_PUBLIC_BASE_URL}/protection-plan`)
         setCities(res.data)
     }
 
@@ -33,11 +33,11 @@ export default function Cities() {
             console.log('sbm',data)
             if(showManage.edit)
             {
-                res = await axios.put(`/protection-plan/${data.id}`,{...data})  
+                res = await coreApi().put(`/protection-plan/${data.id}`,{...data})  
             }
             else
             {
-                res = await axios.post(`/protection-plan`,{...data}) 
+                res = await coreApi().post(`/protection-plan`,{...data}) 
                 
             }
             if(res.data)
@@ -164,7 +164,7 @@ const ManageCity = ({setShow,onSubmit,edit=false})=>
         async function getPlanInfo(){
             if(edit)
             {
-                let res = await axios.get(`${process.env.REACT_APP_BASE_URL}/plan/${edit}`)
+                let res = await coreApi().get(`/plan/${edit}`)
                 console.log(res.data)
                 setPlan({id:res.data.id,startDate:res.data.startDate,basicPlanPrice:res.data.basicPlanPrice,silverPlanPrice:res.data.silverPlanPrice,goldPlanPrice:res.data.goldPlanPrice,basicPlanAccidentAmount:res.data.basicPlanAccidentAmount,silverPlanAccidentAmount:res.data.silverPlanAccidentAmount,goldPlanAccidentAmount:res.data.goldPlanAccidentAmount,basicPlanExtraHourPrice:res.data.basicPlanExtraHourPrice,silverPlanExtraHourPrice:res.data.silverPlanExtraHourPrice,goldPlanExtraHourPrice:res.data.goldPlanExtraHourPrice,status:res.data.status,basicPlanLuxuryPrice:res.data.basicPlanLuxuryPrice,silverPlanLuxuryPrice:res.data.silverPlanLuxuryPrice,goldPlanLuxuryPrice:res.data.goldPlanLuxuryPrice,basicPlanLuxuryExtraHourPrice:res.data.basicPlanLuxuryExtraHourPrice,silverPlanLuxuryExtraHourPrice:res.data.silverPlanLuxuryExtraHourPrice,goldPlanLuxuryExtraHourPrice:res.data.goldPlanLuxuryExtraHourPrice,basicPlanLuxuryAccidentAmount:res.data.basicPlanLuxuryAccidentAmount,silverPlanLuxuryAccidentAmount:res.data.silverPlanLuxuryAccidentAmount,goldPlanLuxuryAccidentAmount:res.data.goldPlanLuxuryAccidentAmount})
                 setLoading(false)

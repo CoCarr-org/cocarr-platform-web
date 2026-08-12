@@ -13,7 +13,7 @@ import { Input } from '@cocarr/forms'
 import { SingleImageHolder } from '@cocarr/ui'
 import { Select } from '@cocarr/forms'
 import DatePicker from 'react-datepicker'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 // import { AddRideDue } from '@cocarr/ui'
 
 export default function RideInfo() {
@@ -33,7 +33,7 @@ export default function RideInfo() {
     async function getRideInfo() {
 
         try {
-            let res = await axios.get(`/booking/${id}?populate=true`)
+            let res = await coreApi().get(`/booking/${id}?populate=true`)
             console.log('data', res.data)
             if (res.data) setRideInfo(res.data)
             setLoading(false)
@@ -52,7 +52,7 @@ export default function RideInfo() {
 
         try {
             e.preventDefault();
-            let res = await axios.post(`/booking/start-ride/${id}`, { startKms, pickupTime, startFuel, startImage })
+            let res = await coreApi().post(`/booking/start-ride/${id}`, { startKms, pickupTime, startFuel, startImage })
             console.log('data', res.data)
             if (res.data) await getRideInfo()
             setShowStart(false)
@@ -68,7 +68,7 @@ export default function RideInfo() {
 
         try {
             e.preventDefault();
-            let res = await axios.post(`/booking/end-ride/${id}`, { endKms, dropTime, endFuel, endImage, manualRefund, manualRefundAmount, remarks })
+            let res = await coreApi().post(`/booking/end-ride/${id}`, { endKms, dropTime, endFuel, endImage, manualRefund, manualRefundAmount, remarks })
             console.log('data', res.data)
             if (res.data) await getRideInfo()
             setShowEnd(false)
@@ -84,7 +84,7 @@ export default function RideInfo() {
 
         try {
             e.preventDefault();
-            let res = await axios.post(`/booking/cancel-ride/${id}`, { startKms, pickupTime })
+            let res = await coreApi().post(`/booking/cancel-ride/${id}`, { startKms, pickupTime })
             console.log('data', res.data)
             if (res.data) await getRideInfo()
             setShowStart(false)
@@ -101,7 +101,7 @@ export default function RideInfo() {
             e.preventDefault()
             let res;
             setSubmitting(true)
-            res = await axios.post(`/due`, { bookingId: rideInfo.id, userId: rideInfo.userId, ...data })
+            res = await coreApi().post(`/due`, { bookingId: rideInfo.id, userId: rideInfo.userId, ...data })
             InfoToast('Due Created')
             setSubmitting(false)
             setShowAddDue(false)

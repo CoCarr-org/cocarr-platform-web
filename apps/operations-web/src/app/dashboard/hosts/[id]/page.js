@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Header } from '@cocarr/ui';
 import { ErrorToast } from '@cocarr/notifications';
-import axios from 'axios';
+import { coreApi } from '@cocarr/api-sdk';
 import { FiArrowRight } from 'react-icons/fi';
 import { NoticeBar } from '@cocarr/ui';
 
@@ -22,7 +22,7 @@ export default function UserInfo() {
     {
         try 
         {
-            let res = await axios.get(`/host/${id}`)
+            let res = await coreApi().get(`/host/${id}`)
             // console.log('res',res.data)
             setHostInfo(res.data)
         } catch (error) {

@@ -13,7 +13,7 @@ import { Input } from '@cocarr/forms'
 import { SingleImageHolder } from '@cocarr/ui'
 import { Select } from '@cocarr/forms'
 import DatePicker from 'react-datepicker'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 // import { AddRideDue } from '@cocarr/ui'
 
 export default function PaymentInfo() {
@@ -33,7 +33,7 @@ export default function PaymentInfo() {
     async function getRideInfo() {
 
         try {
-            let res = await axios.get(`/booking/${id}?populate=true`)
+            let res = await coreApi().get(`/booking/${id}?populate=true`)
             console.log('data', res.data)
             if (res.data) setRideInfo(res.data)
             setLoading(false)

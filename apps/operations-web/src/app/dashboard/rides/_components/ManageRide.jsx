@@ -26,7 +26,7 @@ export default function ManageRide({onClose,onSubmit})
         {
             // if(cityFilter) query+= `&cityId=${cityFilter}`
             // if(premiumFilter) query+= `&isPremium=${premiumFilter}`
-            let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/city`)
+            let res = await coreApi().get(`/city`)
             // setUsers(res.data.data)
             setCities(res.data)
         } 
@@ -43,7 +43,7 @@ export default function ManageRide({onClose,onSubmit})
             query+= `&search=${searchText}`
             // if(cityFilter) query+= `&cityId=${cityFilter}`
             // if(premiumFilter) query+= `&isPremium=${premiumFilter}`
-            let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/user?${query}`)
+            let res = await coreApi().get(`/user?${query}`)
             // setUsers(res.data.data)
             return res.data.data
         } 
@@ -61,7 +61,7 @@ export default function ManageRide({onClose,onSubmit})
             if(searchText) query+= `&search=${searchText}`
             if(data.city) query+= `&city=${data.city}`
             // if(premiumFilter) query+= `&isPremium=${premiumFilter}`
-            let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/admin/vehicle?${query}`)
+            let res = await coreApi().get(`/admin/vehicle?${query}`)
             setVehicles(res.data)
             return res.data
         } 

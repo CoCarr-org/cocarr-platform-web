@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Input } from '@cocarr/forms'
 import { Popup } from '@cocarr/ui'
 import { Select } from '@cocarr/forms'
-import axios from "axios"
+import { coreApi } from '@cocarr/api-sdk'
 
 export default function ManageOffer({onClose,onSubmit,updateData,edit})
 {
@@ -13,7 +13,7 @@ export default function ManageOffer({onClose,onSubmit,updateData,edit})
        useEffect(()=>
     {
         async function getCities(){
-            let res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/city`)
+            let res = await coreApi().get(`/city`)
             setCities(res.data)
         }
         getCities()

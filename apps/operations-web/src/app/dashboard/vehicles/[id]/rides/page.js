@@ -8,7 +8,6 @@ import { ErrorToast, InfoToast } from '@cocarr/notifications'
 import { BOOKING_BOOKED, BOOKING_CANCELLED, BOOKING_INITIATED, BOOKING_ONGOING, LIMIT } from '@cocarr/shared-utils'
 import { getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
 import { Status } from '@cocarr/ui'
-import axios from 'axios'
 import {
   createColumnHelper,
   flexRender,
@@ -136,7 +135,7 @@ export default function Rides() {
             let query = `hostId=${id}&populate=true&offset=${offset}&limit=${LIMIT}`
             if(searchText) query+= `&search=${searchText}`
             if(sort) query+= `&sort=${sort}`
-            let res = await axios.get(`/admin/booking?${query}`)
+            let res = await coreApi().get(`/admin/booking?${query}`)
             console.log('data',res.data)
             if(res.data) 
             {
@@ -151,7 +150,7 @@ export default function Rides() {
     async function getCities(){
         try 
         {
-            let res = await axios.get(`${process.env.REACT_APP_BASE_URL}/city`)
+            let res = await coreApi().get(`/city`)
             if(res.data) 
             {
                 setCities(res.data)
