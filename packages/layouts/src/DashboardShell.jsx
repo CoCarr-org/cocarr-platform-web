@@ -35,7 +35,15 @@ export function DashboardShell({
       <NavigationProvider product={product} fallback={loading} errorFallback={onError}>
         <div className="flex h-screen overflow-hidden">
           <Sidebar product={product} label={label} logoSrc={logoSrc} onSignOut={onSignOut} />
-          <main className="flex-1 bg-[#F5F5F5] overflow-y-auto">{children}</main>
+          {/* `min-w-0` is load-bearing. A flex item defaults to
+              `min-width:auto`, so it refuses to shrink below its content's
+              intrinsic width — one wide table or one long unbroken id then
+              pushes <main> past the viewport, and because the parent is
+              `overflow-hidden` the excess is CLIPPED rather than scrollable.
+              `overflow-x-hidden` is the backstop: anything that still exceeds
+              the width scrolls inside its own container (tables already do)
+              instead of dragging the whole shell sideways. */}
+          <main className="flex-1 min-w-0 bg-[#F5F5F5] overflow-y-auto overflow-x-hidden">{children}</main>
         </div>
       </NavigationProvider>
     </RequireAuth>
