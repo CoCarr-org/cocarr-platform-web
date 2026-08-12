@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { coreApi } from '@cocarr/api-sdk'
 import { InfoToast, ErrorToast } from '@cocarr/notifications'
-import { Header, Pagination } from '@cocarr/ui'
+import { Header, Pagination, Modal } from '@cocarr/ui'
 import { LIMIT, photoUrl } from '@cocarr/shared-utils'
 
 const input = 'border border-gray-200 rounded-md px-3 py-2 text-sm outline-none focus:border-[#ECC032]'
@@ -60,9 +60,8 @@ const Gallery = ({ images }) => {
         ))}
       </div>
       {open && (
-        <div className='fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6'
-          onClick={() => setOpen(null)}>
-          <div className='bg-white rounded-md p-3 max-w-3xl' onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => setOpen(null)} size='lg' label='Damage photos' dismissOnBackdrop className='p-3'>
+          <div>
             <div className='flex justify-between items-center mb-2'>
               <p className='text-sm font-semibold'>Damage photo</p>
               <button onClick={() => setOpen(null)} className='text-sm text-[#757575] px-2'>✕</button>
@@ -70,7 +69,7 @@ const Gallery = ({ images }) => {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={photoUrl(open)} alt='Damage' className='max-w-full max-h-[75vh] object-contain' />
           </div>
-        </div>
+        </Modal>
       )}
     </>
   )

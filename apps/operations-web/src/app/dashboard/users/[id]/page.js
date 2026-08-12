@@ -11,7 +11,7 @@ import {
   STATUS_PILL, STATUS_LABEL, STATUS_MEANING, DOC_PILL, DOC_LABEL, allowedActions,
 } from '@/app/_helpers/userStatus'
 import { useCan } from '@cocarr/iam-sdk'
-import { FaceCompare } from '@cocarr/ui'
+import { FaceCompare, Modal } from '@cocarr/ui'
 
 // User detail — everything an admin needs to decide about one person, grouped
 // into labelled sections (SectionHeading), in the order they are needed:
@@ -947,9 +947,8 @@ export default function UserDetailPage() {
 
       {/* Reject and suspend both need a mandatory reason, so they share a dialog. */}
       {dialog && (
-        <div className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6'
-          onClick={() => setDialog(null)}>
-          <div className='bg-white rounded-md p-5 w-full max-w-lg' onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => setDialog(null)} size='md' label='Confirm' className='p-5'>
+          <div>
             <p className='font-semibold mb-1'>
               {dialog === 'reject' ? 'Reject' : 'Suspend'} {fullName || 'this account'}
             </p>
@@ -994,7 +993,7 @@ export default function UserDetailPage() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       <p className='text-[11px] text-[#959595] mt-3'>

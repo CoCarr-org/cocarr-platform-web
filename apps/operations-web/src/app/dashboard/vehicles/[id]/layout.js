@@ -104,10 +104,14 @@ export default function VehicleDetailLayout({ children }) {
           </div>
         </div>
 
-        {/* Children render regardless: the Rides, Reviews and Availability tabs
+        {/* Content band — same max width and gutters as the header above, so the
+            body lines up with its own title instead of sitting off-centre.
+            Children render regardless: the Rides, Reviews and Availability tabs
             fetch by id and are usable without the vehicle record. */}
-        {error && <div className='pt-4'><ErrorState message={error} onRetry={load} /></div>}
-        <div className='py-6'>{children}</div>
+        <div className='max-w-7xl mx-auto min-w-0 px-6'>
+          {error && <div className='pt-4'><ErrorState message={error} onRetry={load} /></div>}
+          <div className='py-6'>{children}</div>
+        </div>
       </div>
     </VehicleContext.Provider>
   )

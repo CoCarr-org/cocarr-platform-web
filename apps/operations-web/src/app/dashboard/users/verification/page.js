@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { coreApi } from '@cocarr/api-sdk'
 import { InfoToast, ErrorToast } from '@cocarr/notifications'
-import { PageLayout, Pagination } from '@cocarr/ui'
+import { PageLayout, Pagination, Modal } from '@cocarr/ui'
 import { LIMIT } from '@cocarr/shared-utils'
 import { DocumentImage } from '@/app/_components/DocumentCell'
 import { DOC_PILL, DOC_LABEL } from '@/app/_helpers/userStatus'
@@ -396,9 +396,8 @@ export default function UsersVerification() {
       </div>
 
       {rejecting && (
-        <div className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6'
-          onClick={() => setRejecting(null)}>
-          <div className='bg-white rounded-md p-5 w-full max-w-lg' onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => setRejecting(null)} size='md' label='Reject profile' className='p-5'>
+          <div>
             <p className='font-semibold mb-1'>
               Reject {[rejecting.firstName, rejecting.lastName].filter(Boolean).join(' ') || rejecting.name}
             </p>
@@ -435,13 +434,12 @@ export default function UsersVerification() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {suspending && (
-        <div className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6'
-          onClick={() => setSuspending(null)}>
-          <div className='bg-white rounded-md p-5 w-full max-w-lg' onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => setSuspending(null)} size='md' label='Suspend profile' className='p-5'>
+          <div>
             <p className='font-semibold mb-1'>
               Suspend {[suspending.firstName, suspending.lastName].filter(Boolean).join(' ') || suspending.name}
             </p>
@@ -475,7 +473,7 @@ export default function UsersVerification() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       <p className='text-[11px] text-[#959595] mt-3'>

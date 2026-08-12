@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { coreApi } from '@cocarr/api-sdk'
 import { InfoToast, ErrorToast, apiErrorMessage } from '@cocarr/notifications'
 import { getValidDateFormat } from '@cocarr/shared-utils'
-import { PageLayout } from '@cocarr/ui'
+import { PageLayout, Modal } from '@cocarr/ui'
 import { useCan } from '@cocarr/iam-sdk'
 import { DOC_PILL, DOC_LABEL } from '@/app/_helpers/vehicleStatus'
 import {
@@ -39,8 +39,8 @@ const REJECT_REASONS = [
 function RejectDialog({ vehicle, onCancel, onConfirm, busy }) {
   const [reason, setReason] = useState('')
   return (
-    <div className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6' onClick={onCancel}>
-      <div className='bg-white rounded-lg p-5 w-full max-w-md' onClick={(e) => e.stopPropagation()}>
+    <Modal onClose={onCancel} size='sm' label='Reject vehicle' className='p-5'>
+      <div>
         <h3 className='text-sm font-semibold text-[#1a1a1a]'>
           Reject {vehicle.vehicleName || vehicle.vehicleNumber}
         </h3>
@@ -75,7 +75,7 @@ function RejectDialog({ vehicle, onCancel, onConfirm, busy }) {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 

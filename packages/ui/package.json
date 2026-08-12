@@ -18,6 +18,7 @@
   "dependencies": {
     "@cocarr/shared-utils": "1.0.0",
     "@cocarr/api-sdk": "1.0.0",
-    "@cocarr/notifications": "1.0.0"
+    "@cocarr/notifications": "1.0.0",
+    "@cocarr/iam-sdk": "1.0.0"
   }
 }

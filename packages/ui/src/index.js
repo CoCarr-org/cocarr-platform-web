@@ -8,6 +8,7 @@ export { default as Loader } from './Loader';
 export { default as NavigationTabBar } from './NavigationTabBar';
 export { default as NotBuiltPage } from './NotBuiltPage';
 export { default as NoticeBar } from './NoticeBar';
+export { default as Modal } from './Modal';
 export { default as PageLayout } from './PageLayout';
 export { default as Pagination } from './Pagination';
 export { default as Popup } from './Popup';
