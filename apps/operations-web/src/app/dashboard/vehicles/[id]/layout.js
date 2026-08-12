@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { coreApi } from '@cocarr/api-sdk'
 import { apiErrorMessage } from '@cocarr/notifications'
-import { NavigationTabBar } from '@cocarr/ui'
+import { NavigationTabBar, PageLayout } from '@cocarr/ui'
 import { STATUS_LABEL, STATUS_PILL } from '@/app/_helpers/vehicleStatus'
 import { DetailHeader, ErrorState, Pill, StatusPill, Thumb } from '@/app/_components/ui'
 import { VehicleContext } from './_VehicleContext'
@@ -68,7 +68,15 @@ export default function VehicleDetailLayout({ children }) {
 
   return (
     <VehicleContext.Provider value={value}>
-      <div className='max-w-7xl mx-auto px-6'>
+      {/* SAME THREE BANDS AS EVERY LIST SCREEN (see PageLayout):
+          navigation header -> tabs -> content. Detail screens used to be a
+          plain container with the header and tab bar scrolling away with the
+          page, so on a long tab you lost both which record you were in and the
+          means to leave it. The identity + tabs are now one sticky block and
+          only the data scrolls. */}
+      <div className='min-h-full min-w-0'>
+        <div className='sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur-sm'>
+          <div className='max-w-7xl mx-auto min-w-0 px-6'>
         <DetailHeader
           backHref='/dashboard/vehicles'
           backLabel='All vehicles'
@@ -92,7 +100,9 @@ export default function VehicleDetailLayout({ children }) {
           ] : []}
         />
 
-        <NavigationTabBar options={tabs} />
+          <NavigationTabBar options={tabs} />
+          </div>
+        </div>
 
         {/* Children render regardless: the Rides, Reviews and Availability tabs
             fetch by id and are usable without the vehicle record. */}
