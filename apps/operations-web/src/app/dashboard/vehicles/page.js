@@ -1,305 +1,184 @@
 'use client'
-
-import React, { useEffect, useState } from 'react'
-import { toast } from 'react-toastify'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { ErrorToast, InfoToast, apiErrorMessage } from '@cocarr/notifications'
-import { LIMIT, photoUrl } from '@cocarr/shared-utils'
-import ManageVehicle from './_components/ManageVehicle'
-import { PageLayout, Pagination, SearchInput } from '@cocarr/ui'
-import Link from 'next/link'
+import React, { useCallback, useEffect, useState } from 'react'
 import { coreApi } from '@cocarr/api-sdk'
-import { DataTable } from '@cocarr/datagrid'
-import { Verified } from 'lucide-react'
-import { FiUserCheck } from 'react-icons/fi'
+import { ErrorToast, InfoToast, apiErrorMessage } from '@cocarr/notifications'
+import { LIMIT } from '@cocarr/shared-utils'
+import { PageLayout, Pagination } from '@cocarr/ui'
+import { useCan } from '@cocarr/iam-sdk'
+import VehicleTable from './_components/VehicleTable'
+import ManageVehicle from './_components/ManageVehicle'
+import {
+  EmptyState, Explainer, FilterSelect, ListState, SearchBox, useDebounced,
+} from '@/app/_components/ui'
 
-// `extraQuery` lets other modules reuse this list pre-filtered — Vehicles >
-// Approvals (pending approval) and Hosts > Vehicles (one host's fleet) —
-// rather than every one of them showing the unfiltered fleet.
-export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
+// The fleet — every car across every host and city.
+//
+// SEARCH USED TO DO NOTHING. The box was bound to state that no request ever
+// read: `getVehicles` sent offset and limit and nothing else, so typing
+// filtered nothing and the list silently stayed on page one of everything. The
+// server parameter is `searchTerm` (matched against vehicleName and
+// vehicleBrand), which is what is sent now.
+//
+// THE FILTERS HERE ARE THE ONES THE SERVER ACTUALLY HAS. `approved` and
+// `filters[city]` are real query parameters; there is no server-side filter for
+// rejected, suspended or maintenance, so those are not offered. A filter that
+// silently returns the unfiltered list is worse than no filter — the answer
+// looks authoritative.
 
-    const {showAdd} = useSearchParams()
-    const [searchText,setSearchText] = useState('')
-    const [vehicles,setVehicles] = useState([])
-    const [showCreate,setShowCreate] = useState({status:showAdd === 1 ? true : false,edit:null})
-    const [sort,setSort] = useState('-createdOn')
-    const navigate = useRouter()
-    const [offset,setOffset] = useState(0);
-    const [count,setCount] = useState(5)
+const APPROVAL = [
+  { value: '', label: 'Any review status' },
+  { value: 'false', label: 'Pending approval' },
+  { value: 'true', label: 'Approved' },
+]
 
-    const [cityFilters,setCityFilters] = useState([])
-    const [routeFilters,setRouteFilters] = useState([])
-    
+export default function Vehicles({ extraQuery = null, title = 'Vehicles', showHost = true, embedded = false } = {}) {
+  const canCreate = useCan('operations.vehicles.create')
+  const [showCreate, setShowCreate] = useState(false)
+  const [searchText, setSearchText] = useState('')
+  const search = useDebounced(searchText)
+  const [approved, setApproved] = useState('')
+  const [city, setCity] = useState('')
+  const [cities, setCities] = useState([])
+  const [offset, setOffset] = useState(0)
 
-    const [selectedFilters,setSelectedFilters] = useState({city:'',route:''})
+  const [vehicles, setVehicles] = useState([])
+  const [count, setCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-
-    const handleModal = (value) => {
-    navigate.push(`${window.location.pathname}?showManage=${value}`);
-
-    // history.pushState(null, null, window.location.href);
-    };
-
-
-    async function getVehicles(){
-
-        try 
-        {
-            let res = await coreApi().get(`/admin/vehicle?populate=true&offset=${offset}&limit=${LIMIT}${extraQuery ? `&${extraQuery}` : ''}`)
-            if(res.data) setVehicles(res.data.vehicles)
-            setCount(res.data.totalCount)
-        } catch (error) {
-            // `data.error` is a plain STRING here, so `.message` was undefined and
-            // the toast rendered empty — a failed load was indistinguishable
-            // from an empty fleet.
-            ErrorToast(apiErrorMessage(error, 'Could not load vehicles.'))
-        }
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = {
+        populate: true,
+        offset,
+        limit: LIMIT,
+        searchTerm: search || undefined,
+        approved: approved || undefined,
+        // qs (Express's default query parser) reads `filters[city]` back as a
+        // nested object, which is the shape getAllVehicles destructures.
+        ...(city ? { 'filters[city]': city } : {}),
+        ...(extraQuery || {}),
+      }
+      const res = await coreApi().get('/admin/vehicle', { params })
+      setVehicles(res.data?.vehicles || [])
+      setCount(res.data?.totalCount || 0)
+      setError('')
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not load vehicles.'))
+    } finally {
+      setLoading(false)
     }
-    useEffect(()=>
-    {
-        getVehicles();
-    },[offset,extraQuery])
+  }, [offset, search, approved, city, extraQuery])
 
-    const onSubmit = async(e,data,images)=>
-    {
-        try 
-        {
-            let imageList = []
-            e.preventDefault()
-            images.map((item)=>
-            {
-                imageList.push({src:item.src,isCover:item.isCover ? item.isCover : false})
-            })
-            console.log('images',images)
-            let imageRes
-            let res;
-            if(showCreate.edit)
-            {
-                let updateData = {...data,images:imageList}
-                res = await coreApi().put(`/vehicle/${showCreate.edit}`,updateData) 
-                InfoToast('Vehicle Updated')
-                
-            }
-            else
-            {
-                console.log('images',imageList)
-                res = await coreApi().post(`/vehicle`,{...data,images:imageList})
-                InfoToast('Vehicle Created')
-            }
-            if(res.data)
-            {
-                await getVehicles()
-                setShowCreate({status:false,edit:null})
-            }
-            else toast('error updating retailer')
-        } catch (error) {
-            // console.log(error.response.data.error[0])
-            toast.error(error.response.data.error[Object.keys(error.response.data.error)[0]])
-        }
+  useEffect(() => { load() }, [load])
+  useEffect(() => { setOffset(0) }, [search, approved, city])
+
+  // Cities are reference data and cheap; a failure here must not take the fleet
+  // list with it, so the filter simply does not appear.
+  useEffect(() => {
+    let cancelled = false
+    coreApi().get('/city')
+      .then((res) => { if (!cancelled) setCities(res.data?.data || []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  // `POST /vehicle` is authenticateAdmin (unlike `POST /host`, which is the
+  // mobile app's own call) — so an admin listing a car on a host's behalf is a
+  // real, supported flow.
+  const createVehicle = async (e, data, images) => {
+    e.preventDefault()
+    try {
+      const imageList = (images || []).map((item) => ({ src: item.src, isCover: !!item.isCover }))
+      await coreApi().post('/vehicle', { ...data, images: imageList })
+      InfoToast('Vehicle created')
+      setShowCreate(false)
+      setOffset(0)
+      await load()
+    } catch (err) {
+      // The old handler indexed into `error.response.data.error[<first key>]`,
+      // which throws inside the catch on any network failure and replaces the
+      // real error with a TypeError pointing at the handler.
+      ErrorToast(apiErrorMessage(err, 'Could not create the vehicle.'))
     }
+  }
 
+  const isFiltered = Boolean(search || approved || city)
 
-    const RightContent = ()=>
-    {
-        return <div className='h-full'>
-          <button type='button' className='btn-md-stretched' onClick={()=>setShowCreate({status:true,edit:null})}>Add Vehicle</button>
+  const body = (
+    <ListState
+      loading={loading}
+      error={error}
+      onRetry={load}
+      isEmpty={vehicles.length === 0}
+      empty={(
+        <EmptyState
+          title={isFiltered ? 'No vehicles match these filters' : 'No vehicles yet'}
+          message={isFiltered
+            ? 'Search matches the vehicle name and brand only — a registration number will not find anything.'
+            : 'A vehicle appears here as soon as a host starts a listing, including drafts they have not submitted.'}
+        />
+      )}
+    >
+      <VehicleTable vehicles={vehicles} showHost={showHost} />
+      <Explainer>
+        Review status is the admin decision. A car is bookable only when it is approved, the host has it
+        switched on, and an availability window covers the time — see Scheduling.
+      </Explainer>
+    </ListState>
+  )
+
+  // Embedded inside a host's tab bar, the page chrome belongs to the host
+  // detail screen; rendering a second PageLayout would put a title and
+  // breadcrumb inside a tab.
+  if (embedded) {
+    return (
+      <div className='w-full'>
+        <div className='flex items-center gap-3 flex-wrap mb-4'>
+          <SearchBox value={searchText} onChange={setSearchText} placeholder='Search by name or brand' />
+          <FilterSelect value={approved} onChange={setApproved} options={APPROVAL} />
+          <span className='text-xs text-[#959595]'>
+            {loading ? 'Loading…' : `${count} vehicle${count === 1 ? '' : 's'}`}
+          </span>
+          <div className='ml-auto'><Pagination count={count} offset={offset} setOffset={setOffset} /></div>
         </div>
-    }
-
-
-    const columns = [
-        // EVERY ASSOCIATION HERE IS OPTIONAL, AND THE LIST QUERY LEFT JOINS THEM.
-        //
-        // `pickupPoint` especially: a vehicle gets its pickup at the listing
-        // wizard's Location step, so anything mid-listing has no pickups row —
-        // and including exactly those is why the backend join was changed from
-        // INNER to LEFT. Dereferencing `pickupPoint.city.name` on one of them
-        // throws mid-render, which unmounts the whole page. That is worse than
-        // the empty list this screen was already showing: it looks like the
-        // route is broken rather than like one field is missing.
-        {
-            accessorKey: 'photo',
-            header: 'Photo',
-            cell: ({row}) => (
-                <div className="w-14 h-10">
-                    {row.original.images?.length > 0 ? (
-                        <img
-                            src={photoUrl(row.original.images[0].url)}
-                            className="w-full h-full object-cover rounded"
-                            alt={row.original.vehicleName}
-                        />
-                    ) : (
-                        // An <img> with an empty src renders the browser's broken-image
-                        // glyph, which reads as a failed load rather than no photo.
-                        <div className="w-full h-full rounded bg-gray-100" />
-                    )}
-                </div>
-            ),
-            size: 60
-        },
-        {
-            accessorKey: 'name', 
-            header: 'Vehicle',
-            id: 'name',
-            cell: ({row}) => (
-                <div className="relative">
-                    {row.original.isDraft && (
-                        <div className='absolute -left-8 top-0 w-[32px] h-full flex items-center justify-center z-10'>
-                            <div className='bg-[var(--primary-color)] -rotate-90 w-auto px-2 py-1 flex justify-center items-center origin-center'>
-                                <p className='text-black uppercase text-xs font-semibold'>Draft</p>
-                            </div>
-                        </div>
-                    )}
-                    <p className="font-medium text-sm">{row.original.vehicleName}</p>
-                </div>
-            ),
-            size: 150
-        },
-        {
-            accessorKey: 'vehicleNumber',
-            id: 'vehicleNumber',
-            header: 'Number',
-            cell: ({row}) => (
-                <div>
-                    <p className="font-medium text-sm">{row.original.vehicleNumber}</p>
-                </div>
-            ),
-            size: 120
-        },
-        {
-            accessorKey: 'brand', 
-            id: 'brand',
-            header: 'Brand',
-            cell: ({row}) => (
-                <div>
-                    <p className="font-medium text-sm">{row.original.brand?.name || '—'}</p>
-                </div>
-            ),
-            size: 120
-        },
-        {
-            accessorKey: 'rate',
-            header: 'Rate/Hr', 
-            cell: ({row}) => (
-                <div>
-                    <p className="text-sm">
-                        Rs. {row.original.vehiclePlan?.[0] ? row.original.vehiclePlan[0].perHourFee : '0'}
-                    </p>
-                </div>
-            ),
-            size: 120
-        },
-        {
-            accessorKey: 'status',
-            header: 'Status', 
-            cell: ({row}) => (
-                <div className='flex items-center gap-2'>
-                    <p className={`text-sm ${row.original.active ? 'text-black' : 'text-red-500'}`}>{row.original.active ? 'Active' : 'Inactive'}</p>
-                </div>
-            ),
-            size: 100
-        },
-        {
-            accessorKey: 'verificationId',
-            header: 'Verification', 
-            cell: ({row}) => (
-                <div className='flex items-center gap-2'>
-                    <Verified className={`w-5 h-5 text-gray-500 ${row.original.rcVerificationId ? 'text-green-500' : 'text-gray-500'}`} />
-                    <FiUserCheck className={`w-5 h-5 text-gray-500 ${row.original.rcVerified ? 'text-green-500' : 'text-gray-500'}`} />
-                </div>
-            ),
-            size: 120
-        },
-        {
-            accessorKey: 'id',
-            header: 'City', 
-            cell: ({row}) => (
-                <div className='flex items-center gap-2'>
-                    <p className='text-sm'>{row.original.pickupPoint?.city?.name || 'No pickup set'}</p>
-                </div>
-            ),
-            size: 120
-        },
-        {
-            accessorKey: 'vehicleTransmission',
-            header: 'Transmission', 
-            cell: ({row}) => (
-                <div className='flex items-center gap-2'>
-                    <p className='text-sm capitalize'>{row.original.vehicleTransmission}</p>
-                </div>
-            ),
-            size: 120
-        },
-        {
-            accessorKey: 'vehicleFuelType',
-            header: 'Fuel Type', 
-            cell: ({row}) => (
-                <div className='flex items-center gap-2'>
-                    <p className='text-sm capitalize'>{row.original.vehicleFuelType}</p>
-                </div>
-            ),
-            size: 120
-        }
-    ]
+        {body}
+      </div>
+    )
+  }
 
   return (
-    <>
-      <PageLayout
-        title={title}
-        subtitle='The full fleet across every host and city.'
-        breadcrumb={['Operations', title]}
-        actions={
-          <button type='button' className='btn-md' onClick={() => setShowCreate({ status: true, edit: null })}>
-            + Add Vehicle
-          </button>
-        }
-        filters={
-          <input
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder='Search vehicles'
-            className='flex-1 min-w-[220px] max-w-sm border border-gray-200 rounded-md px-3 py-2 text-sm outline-none focus:border-[#ECC032]'
-          />
-        }
-      >
-        <div className='bg-white border border-gray-100 rounded-lg overflow-hidden'>
-          <DataTable
-            columns={columns}
-            data={vehicles}
-            frozenColumns={['name', 'vehicleNumber', 'brand']}
-            enableSorting={true}
-            onRowClick={(row) => navigate.push(`/dashboard/vehicles/${row.id}`)}
-            className='bg-white'
-          />
-        </div>
-        <div className='flex justify-end py-3'>
-          <Pagination count={count} offset={offset} setOffset={setOffset} />
-        </div>
-      </PageLayout>
-      {showCreate.status ? <ManageVehicle onClose={setShowCreate} onSubmit={onSubmit} edit={showCreate.edit} /> : null}
-    </>
+    <PageLayout
+      title={title}
+      subtitle='Every car on the platform, across all hosts and cities.'
+      breadcrumb={['Operations', 'Vehicles']}
+      actions={canCreate ? (
+        <button type='button' className='btn-md' onClick={() => setShowCreate(true)}>+ Add vehicle</button>
+      ) : null}
+      filters={(
+        <>
+          <SearchBox value={searchText} onChange={setSearchText} placeholder='Search by name or brand' />
+          <FilterSelect value={approved} onChange={setApproved} options={APPROVAL} />
+          {cities.length > 0 && (
+            <FilterSelect
+              value={city}
+              onChange={setCity}
+              options={[{ value: '', label: 'All cities' },
+                ...cities.map((c) => ({ value: c.id, label: c.name }))]}
+            />
+          )}
+          <span className='text-xs text-[#959595]'>
+            {loading ? 'Loading…' : `${count} vehicle${count === 1 ? '' : 's'}`}
+          </span>
+          <div className='ml-auto'><Pagination count={count} offset={offset} setOffset={setOffset} /></div>
+        </>
+      )}
+    >
+      {body}
+      {showCreate && (
+        <ManageVehicle onClose={() => setShowCreate(false)} onSubmit={createVehicle} edit={null} />
+      )}
+    </PageLayout>
   )
-}
-
-
-
-const CarItem = ({data,index})=>
-{
-  return <div className={`col-span-1 shadow-md shadow-gray-200 my-4 translate-y-0 hover:translate-y-1 hover:shadow-none transition-all rounded-md overflow-hidden z-0`} key={index}>
-    <Link href={`/vehicles/${data.vehicleId}`}>
-    <div className={`w-full h-[140px] relative`}>
-        <img src={data.images.length > 0 ? photoUrl(data.images[0].url) : ''}  className='w-full h-full' />
-    </div>
-    <div className='bg-white px-4 py-4'>
-          <div className='pb-3'>
-            <p className='text-sm font-medium capitalize'>{data.brand.name} {data.vehicleName}</p>
-            <p className='text-xs text-[#959595] capitalize mt'>{data.vehicleFuelType} &middot; {data.vehicleSeats} Seater &middot; {data.vehicleYear}</p>
-          </div>
-          <div className='pt-3 border-t border-t-gray-200'>
-            <p className='text-lg font-bold'><span className='text-sm font-medium'>Rs.</span>{data.vehiclePlan[0] ? data.vehiclePlan[0].perHourFee : '0'}<span className='text-sm font-medium'>/hr</span></p>
-            <p className='text-xs text-[#959595] capitalize'>Available from 24 Oct 12:00 Pm</p>
-          </div>
-    </div>
-    </Link>
-  </div>
 }
