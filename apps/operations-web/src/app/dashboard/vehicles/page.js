@@ -8,7 +8,7 @@ import { LIMIT, photoUrl } from '@cocarr/shared-utils'
 import ManageVehicle from './_components/ManageVehicle'
 import { PageLayout, Pagination, SearchInput } from '@cocarr/ui'
 import Link from 'next/link'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { DataTable } from '@cocarr/datagrid'
 import { Verified } from 'lucide-react'
 import { FiUserCheck } from 'react-icons/fi'
@@ -45,7 +45,7 @@ export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
 
         try 
         {
-            let res = await axios.get(`/admin/vehicle?populate=true&offset=${offset}&limit=${LIMIT}${extraQuery ? `&${extraQuery}` : ''}`)
+            let res = await coreApi().get(`/admin/vehicle?populate=true&offset=${offset}&limit=${LIMIT}${extraQuery ? `&${extraQuery}` : ''}`)
             if(res.data) setVehicles(res.data.vehicles)
             setCount(res.data.totalCount)
         } catch (error) {
@@ -76,14 +76,14 @@ export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
             if(showCreate.edit)
             {
                 let updateData = {...data,images:imageList}
-                res = await coreApi().put(`${process.env.REACT_APP_BASE_URL}/vehicle/${showCreate.edit}`,updateData) 
+                res = await coreApi().put(`/vehicle/${showCreate.edit}`,updateData) 
                 InfoToast('Vehicle Updated')
                 
             }
             else
             {
                 console.log('images',imageList)
-                res = await coreApi().post(`${process.env.REACT_APP_BASE_URL}/vehicle`,{...data,images:imageList})
+                res = await coreApi().post(`/vehicle`,{...data,images:imageList})
                 InfoToast('Vehicle Created')
             }
             if(res.data)

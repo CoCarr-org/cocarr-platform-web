@@ -32,6 +32,10 @@ export function apiErrorMessage(error, fallback = 'Something went wrong. Please 
 
   const data = error?.response?.data;
   const candidates = [
+    // @cocarr/api-sdk normalises every service's error onto `error.platform`
+    // in its response interceptor, so this is the most reliable field for any
+    // call that went through coreApi()/platformApi()/etc.
+    error?.platform?.message,
     data?.error?.message,   // gateway  { error: { code, message } }
     data?.error,            // core-api { error: 'message' }
     data?.message,
