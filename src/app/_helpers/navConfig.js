@@ -60,6 +60,10 @@ export const NAV_MODULES = [
     key: 'vehicles', label: 'Vehicles', icon: 'car', module: 'vehicles',
     pages: [
       { label: 'Vehicles',           route: '/dashboard/vehicles',              page: 'Vehicles' },
+      // The front door of the car-hosting flow: submissions awaiting a
+      // decision. The per-vehicle review screen it links to is a detail page
+      // reached FROM here, so it is deliberately not a nav entry.
+      { label: 'Approvals',          route: '/dashboard/vehicles/approvals',    page: 'VehicleApprovals' },
       { label: 'Vehicle RC Details', route: '/dashboard/vehicles/rc',           page: 'VehicleRc' },
       { label: 'Scheduling',         route: '/dashboard/availability-schedule', page: 'AvailabilitySchedule' },
     ],
