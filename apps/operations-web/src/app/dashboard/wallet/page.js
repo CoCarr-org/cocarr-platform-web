@@ -4,7 +4,7 @@ import { ErrorToast } from '@cocarr/notifications'
 import { LIMIT, getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
 import { Pagination, SearchInput } from '@cocarr/ui'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 
 export default function Wallet() {
     const [searchText, setSearchText] = useState('')
@@ -18,12 +18,15 @@ export default function Wallet() {
         try {
             let query = `populate=true&offset=${offset}&limit=${LIMIT}&sort=${sort}`
             if(searchText) query += `&search=${searchText}`
-            
-            let res = await axios.get(`/wallet?${query}`)
-            setWallets(res.data.wallets)
-            setCount(res.data.totalCount)
+
+            // coreApi() carries the auth token, gateway prefix and panel key; a
+            // bare axios.get('/wallet') hits the ops app's own origin and 404s,
+            // which is why the wallet list came back empty.
+            let res = await coreApi().get(`/wallet?${query}`)
+            setWallets(res.data.wallets || [])
+            setCount(res.data.totalCount || 0)
         } catch (error) {
-            ErrorToast(error.response?.data?.name || 'Error fetching wallets')
+            ErrorToast(error?.response?.data?.error || 'Error fetching wallets')
         }
     }
 
@@ -72,9 +75,18 @@ export default function Wallet() {
                             {wallets.map((item, index) => (
                                 <tr key={index}>
                                     <td className='capitalize'>
-                                        <div>
-                                            <p className='text-sm font-medium my-0'>{item.user.name}</p>
-                                            <p className='text-xs my-0 text-gray-400'>{item.user.contactNumber}</p>
+                                        <div
+                                            className={item.userId ? 'cursor-pointer' : ''}
+                                            onClick={() => item.userId && navigate.push(`/dashboard/users/${item.userId}`)}
+                                        >
+                                            {/* users.name is NULL for OTP signups — fall back to
+                                                first/last name so the row isn't blank. */}
+                                            <p className='text-sm font-medium my-0'>
+                                                {item.user?.name
+                                                    || [item.user?.firstName, item.user?.lastName].filter(Boolean).join(' ')
+                                                    || 'Unnamed user'}
+                                            </p>
+                                            <p className='text-xs my-0 text-gray-400'>{item.user?.contactNumber}</p>
                                         </div>
                                     </td>
                                     <td>

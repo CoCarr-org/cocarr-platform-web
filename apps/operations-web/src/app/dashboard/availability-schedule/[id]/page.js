@@ -1,6 +1,6 @@
 'use client'
 import { TabGroup } from '@cocarr/ui'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { useParams } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 
@@ -53,14 +53,14 @@ const MenuItem = ({item})=>
 //         async function getRouteInfo(){
 //             if(edit)
 //             {
-//                 let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/route/${edit}?populate=true`)
+//                 let res = await coreApi().get(`/route/${edit}?populate=true`)
 //                 console.log(res.data.data)
 //                 setRoute({id:res.data.data.id,routeName:res.data.data.routeName,stops:res.data.data.stops})
 //                 setLoading(false)
 //             }
 //         }
 //         async function getCities(){
-//                 let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/city`)
+//                 let res = await coreApi().get(`/city`)
 //                 setCities(res.data.data)
 //         }
 //         getRouteInfo()

@@ -6,7 +6,7 @@ import { SlidePopup } from '@cocarr/ui'
 import { ErrorToast, InfoToast } from '@cocarr/notifications'
 import { getDateFormat } from '@cocarr/shared-utils'
 import { Splide, SplideSlide } from '@splidejs/react-splide'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { useParams } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 import { BiRightArrow, BiSolidRightArrow } from 'react-icons/bi'
@@ -30,7 +30,7 @@ export default function VehicleInfo() {
 
         try 
         {
-            let res = await axios.get(`/admin/vehicle/${id}?`)
+            let res = await coreApi().get(`/admin/vehicle/${id}?`)
             setVehicleInfo(res.data)
         } catch (error) {
             console.log('error',error)
@@ -50,7 +50,7 @@ export default function VehicleInfo() {
         try
         {
             setSubmitting(true)
-            let res = await axios.post(`/admin/vehicle/${id}/approve`)
+            let res = await coreApi().post(`/admin/vehicle/${id}/approve`)
             setShowApproval(false)
             InfoToast('Vehicle approved successfully')
             getVehicleInfo()
@@ -207,7 +207,7 @@ const ApprovalModal = ({show,setShow,id,onApprove,submitting})=>
     {
         try 
         {
-            let res = await axios.get(`/admin/vehicle/${id}?rc=true`)
+            let res = await coreApi().get(`/admin/vehicle/${id}?rc=true`)
             setApprovalInfo(res.data)
         } catch (error) {
             console.log('error',error)

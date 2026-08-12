@@ -5,7 +5,7 @@ import { useParams } from '@/app/_helpers/useParams'
 import { InfoToast } from '@cocarr/notifications'
 import { LIMIT, getDateFormat, getTimeFormat } from '@cocarr/shared-utils'
 import { Header, Loader } from '@cocarr/ui'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import {
     createColumnHelper,
     flexRender,
@@ -37,7 +37,7 @@ export default function RideDue() {
           {
             query += `&limit=${LIMIT}`
           }
-            let res = await axios.get(`/due?${query}`)
+            let res = await coreApi().get(`/due?${query}`)
             setRideInfo(res.data.dues)
             setCount(res.data.count)
             setLoading(false)

@@ -4,7 +4,7 @@ import { ErrorToast, InfoToast } from '@cocarr/notifications'
 import { LIMIT, getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
 import { Header, Pagination, SearchInput } from '@cocarr/ui'
 // import ManageUser from './_components/ManagerUser'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 
 export default function Membership() {
 
@@ -22,7 +22,7 @@ export default function Membership() {
         {
             let query = `populate=true&offset=${offset}&limit=${LIMIT}&sort=${sort}`
             if(searchText) query+= `&search=${searchText}`
-            let res = await axios.get(`/membership?${query}`)
+            let res = await coreApi().get(`/membership?${query}`)
             setMemberships(res.data.data)
             setCount(res.data.totalCount)
         } catch (error) {
@@ -40,7 +40,7 @@ export default function Membership() {
         try 
         {
             e.preventDefault();
-            let res = await axios.post(`/membership`,data)
+            let res = await coreApi().post(`/membership`,data)
             setOffset(0)
             setCount(0)
             await getMemberships();
@@ -52,7 +52,7 @@ export default function Membership() {
     async function downloadExcel() {
         try {
             setDisableExport(true)
-            const response = await axios.get(`/membership/export`)
+            const response = await coreApi().get(`/membership/export`)
       
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');

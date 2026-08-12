@@ -8,7 +8,7 @@ import { LIMIT, getDateFormat, getTimeFormat, photoUrl } from '@cocarr/shared-ut
 import ManageVehicle from './_components/ManageVehicle'
 import { Header, Pagination, SearchInput } from '@cocarr/ui'
 import Link from 'next/link'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { createTable, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { Verified } from 'lucide-react'
 import { FiUserCheck } from 'react-icons/fi'
@@ -43,7 +43,7 @@ export default function AvailabilitySchedule() {
 
         try 
         {
-            let res = await axios.get(`/admin/schedule?populate=true&offset=${offset}&limit=${LIMIT}`)
+            let res = await coreApi().get(`/admin/schedule?populate=true&offset=${offset}&limit=${LIMIT}`)
             if(res.data) setVehicles(res.data.schedules)
             setCount(res.data.count)
         } catch (error) {
@@ -71,14 +71,14 @@ export default function AvailabilitySchedule() {
             if(showCreate.edit)
             {
                 let updateData = {...data,images:imageList}
-                res = await coreApi().put(`${process.env.REACT_APP_BASE_URL}/vehicle/${showCreate.edit}`,updateData) 
+                res = await coreApi().put(`/vehicle/${showCreate.edit}`,updateData) 
                 InfoToast('Vehicle Updated')
                 
             }
             else
             {
                 console.log('images',imageList)
-                res = await coreApi().post(`${process.env.REACT_APP_BASE_URL}/vehicle`,{...data,images:imageList})
+                res = await coreApi().post(`/vehicle`,{...data,images:imageList})
                 InfoToast('Vehicle Created')
             }
             if(res.data)

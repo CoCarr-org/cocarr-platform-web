@@ -5,7 +5,7 @@ import { LIMIT, getDateFormat, getTimeFormat, getValidDateFormat, photoUrl } fro
 import { Header, Pagination, SearchInput } from '@cocarr/ui'
 import ManageUser from './_components/ManagerUser'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { DataTable } from '@cocarr/datagrid'
 import { Verified } from 'lucide-react'
 import { FiUserCheck } from 'react-icons/fi'
@@ -29,7 +29,7 @@ export default function Hosts() {
         {
             let query = `populate=true&offset=${offset}&limit=${LIMIT}&sort=${sort}`
             if(searchText) query+= `&search=${searchText}`
-            let res = await axios.get(`/host?${query}`)
+            let res = await coreApi().get(`/host?${query}`)
             setHosts(res.data.data)
             setCount(res.data.totalCount)
         } catch (error) {
@@ -49,7 +49,7 @@ export default function Hosts() {
         try 
         {
             e.preventDefault();
-            let res = await axios.post(`/host`,data)
+            let res = await coreApi().post(`/host`,data)
             setOffset(0)
             setCount(0)
             await getHosts();
@@ -61,7 +61,7 @@ export default function Hosts() {
     async function downloadExcel() {
         try {
             setDisableExport(true)
-            const response = await axios.get(`/host/export`)
+            const response = await coreApi().get(`/host/export`)
       
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');

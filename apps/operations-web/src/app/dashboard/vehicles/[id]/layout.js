@@ -9,7 +9,6 @@ import { SearchInput } from '@cocarr/ui'
 import { BOOKING_BOOKED, BOOKING_CANCELLED, BOOKING_INITIATED, BOOKING_ONGOING, LIMIT } from '@cocarr/shared-utils'
 import { getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
 import { Status } from '@cocarr/ui'
-import axios from 'axios'
 // import { TabGroup } from '@cocarr/ui'
 import Link from 'next/link'
 import { Header } from '@cocarr/ui'
@@ -42,7 +41,7 @@ export default function VehicleInfoLayout({children}) {
 
         try 
         {
-            let res = await axios.get(`/admin/vehicle/${id}?`)
+            let res = await coreApi().get(`/admin/vehicle/${id}?`)
             console.log('data',res.data)
             if(res.data) 
             {

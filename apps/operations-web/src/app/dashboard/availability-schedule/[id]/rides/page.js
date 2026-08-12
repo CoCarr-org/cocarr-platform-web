@@ -10,7 +10,6 @@ import { BOOKING_BOOKED, BOOKING_CANCELLED, BOOKING_INITIATED, BOOKING_ONGOING, 
 import { getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
 import { Status } from '@cocarr/ui'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import axios from 'axios'
 import {
   createColumnHelper,
   flexRender,
@@ -138,7 +137,7 @@ export default function Rides() {
             if(statusFilter && statusFilter !== '') query+= `&status=${statusFilter}`
             if(cityFilter && cityFilter !== '') query+= `&cityId=${cityFilter}`
             if(sort) query+= `&sort=${sort}`
-            let res = await axios.get(`/booking?${query}`)
+            let res = await coreApi().get(`/booking?${query}`)
             console.log('data',res.data)
             if(res.data) 
             {
@@ -153,7 +152,7 @@ export default function Rides() {
     async function getCities(){
         try 
         {
-            let res = await axios.get(`${process.env.REACT_APP_BASE_URL}/city`)
+            let res = await coreApi().get(`/city`)
             if(res.data) 
             {
                 setCities(res.data)

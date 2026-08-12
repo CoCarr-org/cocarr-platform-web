@@ -5,7 +5,7 @@ import { Loader, Popup } from '@cocarr/ui'
 import { Input, Select } from '@cocarr/forms'
 import Map from '@/app/_components/Map'
 import { InfoToast } from '@cocarr/notifications'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { SortAsc, SortDesc } from 'lucide-react'
 
 export default function PickupPoints() {
@@ -16,7 +16,7 @@ export default function PickupPoints() {
 
     async function getPickups(){
         try {
-            let res = await axios.get(`/pickup-point`)
+            let res = await coreApi().get(`/pickup-point`)
             setPickups(res.data.rows)
             setLoading(false)
         } catch (error) 
@@ -40,11 +40,11 @@ export default function PickupPoints() {
             let res;
             if(showManage.edit)
             {
-                res = await axios.put(`/pickup-point/${data.id}`,{...data})  
+                res = await coreApi().put(`/pickup-point/${data.id}`,{...data})  
             }
             else
             {
-                res = await axios.post(`/pickup-point`,{...data}) 
+                res = await coreApi().post(`/pickup-point`,{...data}) 
                 
             }
             if(res.data)
@@ -146,7 +146,7 @@ const ManagePickuPoints = ({setShow,onSubmit,edit=false})=>
 
 
     async function getCities(){
-        let res = await axios.get(`${process.env.REACT_APP_BASE_URL}/city`)
+        let res = await coreApi().get(`/city`)
         setCities(res.data)
     }
 
@@ -159,7 +159,7 @@ const ManagePickuPoints = ({setShow,onSubmit,edit=false})=>
         async function getPickupInfo(){
             if(edit)
             {
-                let res = await axios.get(`/pickup-point/${edit}`)
+                let res = await coreApi().get(`/pickup-point/${edit}`)
                 console.log(res.data)
                 setPickup({id:res.data.id,name:res.data.name,address:res.data.address,lat:res.data.lat,long:res.data.long,cityId:res.data.cityId})
                 setLoading(false)

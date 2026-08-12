@@ -13,7 +13,6 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import axios from 'axios'
 
 export default function Offers() {
     const [searchText,setSearchText] = useState('')
@@ -90,7 +89,7 @@ export default function Offers() {
         {
             let query = `populate=true&offset=${offset}&limit=${LIMIT}`
             if(searchText) query+= `&search=${searchText}`
-            let res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/offers?${query}`)
+            let res = await coreApi().get(`${process.env.NEXT_PUBLIC_BASE_URL}/offers?${query}`)
             setOffers(res.data)
         } catch (error) {
             toast('Error getting products')
@@ -105,7 +104,7 @@ export default function Offers() {
     async function onSubmit(e,data){
         try {
             e.preventDefault()
-            let res = await axios.post(`${process.env.NEXT_PUBLIC_BASE_URL}/offers`,data)
+            let res = await coreApi().post(`${process.env.NEXT_PUBLIC_BASE_URL}/offers`,data)
             InfoToast('Offer created successfully')
             setShowCreate({status:false,edit:null})
         } catch (error) {

@@ -9,7 +9,6 @@ import { SearchInput } from '@cocarr/ui'
 import { BOOKING_BOOKED, BOOKING_CANCELLED, BOOKING_INITIATED, BOOKING_ONGOING, LIMIT } from '@cocarr/shared-utils'
 import { getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
 import { Status } from '@cocarr/ui'
-import axios from 'axios'
 // import { TabGroup } from '@cocarr/ui'
 import Link from 'next/link'
 import { Header } from '@cocarr/ui'
@@ -48,7 +47,7 @@ export default function SettingsLayout({children}) {
             if(statusFilter && statusFilter !== '') query+= `&status=${statusFilter}`
             if(cityFilter && cityFilter !== '') query+= `&cityId=${cityFilter}`
             if(sort) query+= `&sort=${sort}`
-            let res = await axios.get(`/booking?${query}`)
+            let res = await coreApi().get(`/booking?${query}`)
             console.log('data',res.data)
             if(res.data) 
             {
@@ -63,7 +62,7 @@ export default function SettingsLayout({children}) {
 
         try 
         {
-            let res = await axios.get(`${process.env.REACT_APP_BASE_URL}/city`)
+            let res = await coreApi().get(`/city`)
             if(res.data) 
             {
                 setCities(res.data)

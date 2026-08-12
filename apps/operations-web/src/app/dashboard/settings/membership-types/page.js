@@ -46,7 +46,7 @@ export default function MembershipTypes() {
     async function onSubmit(e,data){
         try {
             e.preventDefault()
-            let res = await coreApi().post(`${process.env.REACT_APP_BASE_URL}/offers`,data)
+            let res = await coreApi().post(`/offers`,data)
             InfoToast('Offer created successfully')
             setShowCreate({status:false,edit:null})
         } catch (error) {

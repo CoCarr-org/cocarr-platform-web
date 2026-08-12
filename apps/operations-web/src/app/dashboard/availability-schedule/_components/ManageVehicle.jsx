@@ -37,19 +37,19 @@ export default function ManageVehicle({onClose,onSubmit,updateData,edit})
     useEffect(()=>
     {
         async function getCities(){
-            let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/city`)
+            let res = await coreApi().get(`/city`)
             setCities(res.data)
         }
         async function getBrands(){
-            let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/brand`)
+            let res = await coreApi().get(`/brand`)
             setBrands(res.data)
         }
         async function getVendors(){
-            let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/vendor`)
+            let res = await coreApi().get(`/vendor`)
             setVendors(res.data)
         }
         async function getPickups(){
-            let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/pickup-point`)
+            let res = await coreApi().get(`/pickup-point`)
             setPickups(res.data.rows)
         }
         getCities()
@@ -61,7 +61,7 @@ export default function ManageVehicle({onClose,onSubmit,updateData,edit})
     // useEffect(()=>
     // {
     //     async function getRoutes(){
-    //         let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/salesrepresentative?repCity=${manageData.cityId}`)
+    //         let res = await coreApi().get(`/salesrepresentative?repCity=${manageData.cityId}`)
     //         setSalesRep(res.data.data)
     //     }
     //     if(manageData.cityId !== '') getRoutes()

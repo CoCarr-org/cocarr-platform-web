@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { InfoToast } from '@cocarr/notifications'
 import { getDateFormat, getTimeFormat } from '@cocarr/shared-utils'
 import { Loader } from '@cocarr/ui'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import {
     createColumnHelper,
     flexRender,
@@ -24,7 +24,7 @@ export default function RideDue() {
 
     async function getBookingDues() {
         try {
-            let res = await axios.get(`/due?populate=true&bookingId=${id}`)
+            let res = await coreApi().get(`/due?populate=true&bookingId=${id}`)
             setRideInfo(res.data.dues)
             setCount(res.data.count)
                     

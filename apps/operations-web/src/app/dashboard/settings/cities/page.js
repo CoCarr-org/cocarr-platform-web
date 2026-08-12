@@ -5,7 +5,7 @@ import { Popup } from '@cocarr/ui'
 import { Input, Select } from '@cocarr/forms'
 import {InfoToast,ErrorToast} from '@cocarr/notifications'
 import Map from '@/app/_components/Map'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { BiSort } from 'react-icons/bi'
 import { SortAsc, SortDesc } from 'lucide-react'
 
@@ -15,7 +15,7 @@ export default function Cities() {
     const [sort,setSort] = useState('name')
 
     async function getCities(){
-        let res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/city`)
+        let res = await coreApi().get(`${process.env.NEXT_PUBLIC_BASE_URL}/city`)
         setCities(res.data)
     }
 
@@ -150,7 +150,7 @@ const ManageCity = ({setShow,onSubmit,edit=false})=>
         async function getCityInfo(){
             if(edit)
             {
-                let res = await coreApi().get(`${process.env.REACT_APP_BASE_URL}/city/${edit}`)
+                let res = await coreApi().get(`/city/${edit}`)
                 console.log(res.data)
                 setCity({id:res.data.id,name:res.data.name,active:res.data.active,availableSoon:res.data.availableSoon,lat:res.data.lat,lng:res.data.lng})
                 setLoading(false)

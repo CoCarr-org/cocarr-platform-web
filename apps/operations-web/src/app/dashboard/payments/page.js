@@ -4,7 +4,7 @@ import { Header, Pagination, SearchInput } from '@cocarr/ui'
 import { ErrorToast, InfoToast } from '@cocarr/notifications'
 import { LIMIT, getValidDateFormat } from '@cocarr/shared-utils'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { DataTable } from '@cocarr/datagrid'
 
 export default function Payments() {
@@ -28,7 +28,7 @@ export default function Payments() {
         {
             let query = `populate=true&offset=${offset}&limit=${LIMIT}`
             if(searchText) query+= `&search=${searchText}`
-            let res = await axios.get(`/transaction?${query}`)
+            let res = await coreApi().get(`/transaction?${query}`)
             console.log('data',res.data)
             setRides(res.data.data)
             setCount(res.data.totalCount)

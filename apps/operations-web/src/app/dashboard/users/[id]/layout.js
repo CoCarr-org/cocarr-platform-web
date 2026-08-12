@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import { toast } from 'react-toastify'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { SimpleHeader } from '@cocarr/ui'
 import { NavigationTabBar } from '@cocarr/ui'
 
@@ -34,7 +34,7 @@ export default function RideInfoLayout({children}) {
 
         try 
         {
-            let res = await axios.get(`/host/${id}?`)
+            let res = await coreApi().get(`/host/${id}?`)
             setHostInfo(res.data)
         } catch (error) {
             toast('Error getting products')

@@ -8,7 +8,7 @@ import { LIMIT, photoUrl } from '@cocarr/shared-utils'
 import ManageVehicle from './_components/ManageVehicle'
 import { PageLayout, Pagination, SearchInput } from '@cocarr/ui'
 import Link from 'next/link'
-import axios from 'axios'
+import { coreApi } from '@cocarr/api-sdk'
 import { DataTable } from '@cocarr/datagrid'
 import { Verified } from 'lucide-react'
 import { FiUserCheck } from 'react-icons/fi'
@@ -45,7 +45,7 @@ export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
 
         try 
         {
-            let res = await axios.get(`/admin/vehicle?populate=true&offset=${offset}&limit=${LIMIT}${extraQuery ? `&${extraQuery}` : ''}`)
+            let res = await coreApi().get(`/admin/vehicle?populate=true&offset=${offset}&limit=${LIMIT}${extraQuery ? `&${extraQuery}` : ''}`)
             if(res.data) setVehicles(res.data.vehicles)
             setCount(res.data.totalCount)
         } catch (error) {
@@ -76,14 +76,14 @@ export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
             if(showCreate.edit)
             {
                 let updateData = {...data,images:imageList}
-                res = await coreApi().put(`${process.env.REACT_APP_BASE_URL}/vehicle/${showCreate.edit}`,updateData) 
+                res = await coreApi().put(`/vehicle/${showCreate.edit}`,updateData) 
                 InfoToast('Vehicle Updated')
                 
             }
             else
             {
                 console.log('images',imageList)
-                res = await coreApi().post(`${process.env.REACT_APP_BASE_URL}/vehicle`,{...data,images:imageList})
+                res = await coreApi().post(`/vehicle`,{...data,images:imageList})
                 InfoToast('Vehicle Created')
             }
             if(res.data)
@@ -108,16 +108,31 @@ export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
 
 
     const columns = [
+        // EVERY ASSOCIATION HERE IS OPTIONAL, AND THE LIST QUERY LEFT JOINS THEM.
+        //
+        // `pickupPoint` especially: a vehicle gets its pickup at the listing
+        // wizard's Location step, so anything mid-listing has no pickups row —
+        // and including exactly those is why the backend join was changed from
+        // INNER to LEFT. Dereferencing `pickupPoint.city.name` on one of them
+        // throws mid-render, which unmounts the whole page. That is worse than
+        // the empty list this screen was already showing: it looks like the
+        // route is broken rather than like one field is missing.
         {
             accessorKey: 'photo',
             header: 'Photo',
             cell: ({row}) => (
                 <div className="w-14 h-10">
-                    <img 
-                        src={row.original.images.length > 0 ? photoUrl(row.original.images[0].url) : ''}
-                        className="w-full h-full object-cover rounded"
-                        alt={row.original.vehicleName}
-                    />
+                    {row.original.images?.length > 0 ? (
+                        <img
+                            src={photoUrl(row.original.images[0].url)}
+                            className="w-full h-full object-cover rounded"
+                            alt={row.original.vehicleName}
+                        />
+                    ) : (
+                        // An <img> with an empty src renders the browser's broken-image
+                        // glyph, which reads as a failed load rather than no photo.
+                        <div className="w-full h-full rounded bg-gray-100" />
+                    )}
                 </div>
             ),
             size: 60
@@ -157,7 +172,7 @@ export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
             header: 'Brand',
             cell: ({row}) => (
                 <div>
-                    <p className="font-medium text-sm">{row.original.brand.name}</p>
+                    <p className="font-medium text-sm">{row.original.brand?.name || '—'}</p>
                 </div>
             ),
             size: 120
@@ -168,7 +183,7 @@ export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
             cell: ({row}) => (
                 <div>
                     <p className="text-sm">
-                        Rs. {row.original.vehiclePlan[0] ? row.original.vehiclePlan[0].perHourFee : '0'}
+                        Rs. {row.original.vehiclePlan?.[0] ? row.original.vehiclePlan[0].perHourFee : '0'}
                     </p>
                 </div>
             ),
@@ -200,7 +215,7 @@ export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
             header: 'City', 
             cell: ({row}) => (
                 <div className='flex items-center gap-2'>
-                    <p className='text-sm'>{row.original.pickupPoint.city.name}</p>
+                    <p className='text-sm'>{row.original.pickupPoint?.city?.name || 'No pickup set'}</p>
                 </div>
             ),
             size: 120
