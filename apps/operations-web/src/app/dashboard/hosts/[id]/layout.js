@@ -6,6 +6,7 @@ import { apiErrorMessage } from '@cocarr/notifications'
 import { getValidDateFormat } from '@cocarr/shared-utils'
 import { NavigationTabBar, PageLayout } from '@cocarr/ui'
 import { Avatar, DetailHeader, ErrorState, Pill } from '@/app/_components/ui'
+import { hostKycState } from '@/app/_helpers/hostKyc'
 import { HostContext } from './_HostContext'
 
 // Host detail shell — identity, status and tabs.
@@ -80,9 +81,17 @@ export default function HostDetailLayout({ children }) {
               <Pill tone={host.isActive === false ? 'bad' : 'good'}>
                 {host.isActive === false ? 'Inactive' : 'Active'}
               </Pill>
-              <Pill tone={host.kycVerified ? 'good' : 'warn'}>
-                {host.kycVerified ? 'KYC verified' : 'KYC pending'}
-              </Pill>
+              {/* NOT `host.kycVerified` — that column has never been written by
+                  anything, so this pill said "KYC pending" about every host on
+                  the platform, including the ones holding a verified Aadhaar and
+                  PAN. The real state is resolved from the USER's documents and
+                  arrives under `verification`; see _helpers/hostKyc.js, which is
+                  also what the panel below the fold reads, so the header and the
+                  section cannot disagree. */}
+              {(() => {
+                const kyc = hostKycState(host.verification)
+                return <Pill tone={kyc.tone}>{kyc.label}</Pill>
+              })()}
             </>
           ) : null}
           meta={host ? [

@@ -8,6 +8,7 @@ import {
   Explainer, Field, FieldGrid, LoadingBlock, Pill, SectionCard, Stat, StatRow,
 } from '@/app/_components/ui'
 import { DOC_LABEL, DOC_PILL } from '@/app/_helpers/userStatus'
+import { hostKycState } from '@/app/_helpers/hostKyc'
 import { useHost } from './_HostContext'
 
 // Host overview — identity, what they are owed against, and how they are paid.
@@ -61,6 +62,26 @@ const docStatus = (doc, verifiedFlag) => {
   if (doc?.status) return doc.status
   if (verifiedFlag) return 'verified'
   return 'missing'
+}
+
+// Is this host's KYC done — stated, not left to be inferred from two cards.
+//
+// The tone carries the answer at a glance and the sentence carries what is
+// outstanding, because "KYC pending" on its own sends an admin into the
+// documents to find out which one and why.
+const KycVerdict = ({ verification }) => {
+  const { tone, label, detail } = hostKycState(verification)
+  const skin = {
+    good: 'border-green-100 bg-green-50 text-green-800',
+    warn: 'border-amber-100 bg-amber-50 text-amber-800',
+    bad: 'border-red-100 bg-red-50 text-red-800',
+  }[tone]
+  return (
+    <div className={`rounded-md border px-4 py-3 ${skin}`}>
+      <p className='text-sm font-semibold'>{label}</p>
+      <p className='text-xs mt-0.5 opacity-90'>{detail}</p>
+    </div>
+  )
 }
 
 const DocumentSummary = ({ label, status, number, name, note, mismatch }) => (
@@ -189,12 +210,19 @@ export default function HostOverview() {
       </SectionCard>
 
       <SectionCard
-        title='Identity verification'
-        description='Aadhaar, PAN and driving licence. These belong to the person, not to the host role.'
+        title='Host KYC'
+        description='Aadhaar and PAN. That is the whole of it — a host lists a car, they do not drive it.'
         actions={host.userId ? (
-          <Link href={`/dashboard/users/${host.userId}`} className='btn-md'>Review documents</Link>
+          <Link href={`/dashboard/users/${host.userId}`} className='btn-md'>Open user profile</Link>
         ) : null}
       >
+        {/* THE ANSWER FIRST, THE EVIDENCE UNDER IT. An admin opens this section
+            to settle one question — is this host's KYC done? — and reading it
+            off two document cards is work they should not have to do. */}
+        <div className='mb-4'>
+          <KycVerdict verification={v} />
+        </div>
+
         {/* ONE SUBMISSION COVERS BOTH ROLES, AND THE SCREEN SAYS SO.
             Documents are keyed by USER id, and a host is a user — so somebody
             who verified as a rider is already verified as a host. Without this
@@ -208,7 +236,7 @@ export default function HostOverview() {
           </Explainer>
         </div>
 
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
           <DocumentSummary
             label='Aadhaar / KYC'
             status={docStatus(v.documents?.kyc, v.kycVerified)}
@@ -224,22 +252,19 @@ export default function HostOverview() {
             note={v.panProviderStatus ? `Registry: ${v.panProviderStatus}` : null}
             mismatch={v.panNameMatch === false}
           />
-          <DocumentSummary
-            label='Driving licence'
-            status={docStatus(v.documents?.licence, v.licenseVerified)}
-            number={v.licenseNumber}
-            name={v.licenseName}
-          />
         </div>
 
         <div className='mt-4'>
           {/* The decision lives on ONE screen. Two screens acting on the same
               document is how a document gets approved from whichever one
               happens to show less evidence — the same rule the vehicle
-              overview follows by deferring to /review. */}
+              overview follows by deferring to /review.
+              THE LICENCE IS NOT MISSING FROM THIS SCREEN BY ACCIDENT — say so,
+              or its absence reads as a payload that failed to load. */}
           <Explainer>
             Decisions are made on the user profile, where the scans, the extracted values and the provider
-            verdict are shown together. This panel reports; it does not decide.
+            verdict are shown together — along with the driving licence, which the person needs to
+            <strong> book</strong> a car and not to list one. This panel reports; it does not decide.
           </Explainer>
         </div>
       </SectionCard>
