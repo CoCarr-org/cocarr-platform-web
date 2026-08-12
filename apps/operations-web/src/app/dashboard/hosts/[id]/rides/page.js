@@ -1,238 +1,197 @@
 'use client'
-import React, { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useParams } from 'next/navigation'
-import { Header } from '@cocarr/ui'
+import React, { useCallback, useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { coreApi } from '@cocarr/api-sdk'
-import { toast } from 'react-toastify'
-import { ErrorToast, InfoToast } from '@cocarr/notifications'
-import { SearchInput } from '@cocarr/ui'
-import { BOOKING_BOOKED, BOOKING_CANCELLED, BOOKING_INITIATED, BOOKING_ONGOING, LIMIT } from '@cocarr/shared-utils'
-import { getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
-import { Status } from '@cocarr/ui'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { apiErrorMessage } from '@cocarr/notifications'
+import { LIMIT, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
+import { Pagination } from '@cocarr/ui'
+import { DataTable } from '@cocarr/datagrid'
 import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+  EmptyState, FilterSelect, ListState, Pill, SearchBox, useDebounced,
+} from '@/app/_components/ui'
 
-export default function Rides() {
-    const [searchText,setSearchText] = useState('')
-    const [rides,setRides] = useState([])
-    const {id} = useParams()
-    const [showCreate,setShowCreate] = useState({status:false,edit:null})
-    const [offset,setOffset] = useState(0);
-    const [count,setCount] = useState(5)
-    const [cities,setCities] = useState([])
-    const [cityFilter,setCityFilter] = useState('')
-    const [statusFilter,setStatusFilter] = useState('')
-    const [sort,setSort] = useState('-createdAt')
-    const router = useRouter()
-    
-    const columnHelper = createColumnHelper()
+// Host › Rides — every booking taken on this host's cars.
+//
+// FOUR THINGS WERE BROKEN HERE, none of them visual:
+//
+//   1. Clicking a row went to `/rides/{id}` — no `/dashboard` prefix, so every
+//      row in the table 404'd.
+//   2. `getCities()` did `setCities(res.data)` where `/city` answers
+//      `{ data: [...] }`, so `cities` held an object; the city filter it fed
+//      rendered nothing and filtered nothing.
+//   3. It was called twice on mount, and again on every filter change, for a
+//      list that never changes.
+//   4. An "Add Ride" button, on a host's ride history.
+//
+// `initiated` IS SHOWN AND IS NOT A GLITCH. Payment captured, confirm-booking
+// never completed — a real, non-transient stuck state, and the one an ops admin
+// most needs to see on a host's history. Filtering it out (or lumping it in
+// with booked) is a recurring bug across these clients.
 
-    const columns = [
-      columnHelper.accessor('bookingId', {
-        header: 'Booking ID / Time',
-        cell: info => (
-          <div>
-            <p className='text-xs font-medium my-0 uppercase'>{info.getValue()}</p>
-            <p className='text-xs my-0 text-gray-400'>{getValidDateFormat(info.row.original.createdAt)}</p>
-          </div>
-        ),
-      }),
-      columnHelper.accessor('user', {
-        header: 'User',
-        size: 200,
-        cell: info => (
-          <div>
-            <p className='text-sm font-medium my-0'>{info.getValue()?.name || 'Unavailable'}</p>
-            <p className='text-xs my-0 text-gray-400'>{info.getValue()?.contactNumber || 'Not Available'}</p>
-          </div>
-        ),
-      }),
-      columnHelper.accessor('vehicle', {
-        header: 'Vehicle',
-        cell: info => (
-          <div>
-            <p className='text-sm font-medium my-0'>{info.getValue().vehicleName}</p>
-            <p className='text-xs my-0 text-gray-400'>{info.getValue().vehicleNumber || 'Not Available'}</p>
-          </div>
-        ),
-      }),
-      columnHelper.accessor('totalAmount', {
-        header: 'Amount(In Rs.)',
-        cell: info => (
-          <div>
-            <p className='text-sm font-regular my-0'>Rs.{info.getValue()}</p>
-          </div>
-        ),
-      }),
-      columnHelper.accessor('bookingType', {
-        header: 'Booking Type',
-        cell: info => (
-          <Status label={info.getValue()} type={info.getValue() === 'online' ? 'neutral' : 'medium'} />
-        ),
-      }),
-      columnHelper.accessor('deliveryType', {
-        header: 'Delivery Type',
-        cell: info => (
-          <p className='text-sm font-regular my-0'>{info.row.original.deliveryType === 'pickup' ? 'Pickup' : 'Delivery'}</p>
-        ),
-      }),
-      columnHelper.accessor('status', {
-        header: 'Status',
-        cell: info => (
-          <Status 
-            label={info.getValue()} 
-            type={info.getValue() === BOOKING_INITIATED ? 'neutral' 
-              : info.getValue() === BOOKING_CANCELLED ? 'negative' 
-              : info.getValue() === BOOKING_ONGOING ? 'medium' 
-              : 'positive'} 
-          />
-        ),
-      }),
-          columnHelper.accessor(row => ({start: row.startTime, end: row.endTime}), {
-            id: 'times',
-            header: 'Start/End Time',
-            size: 300,
-            cell: info => (
-              <div>
-                <p className='text-xs font-regular my-0'>
-                  {`${getDateFormat(info.getValue().start)} ${getTimeFormat(info.getValue().start)}`}
-                </p>
-                <p className='text-xs font-regular my-0'>
-                  {`${getDateFormat(info.getValue().end)} ${getTimeFormat(info.getValue().end)}`}
-                </p>
-              </div>
-            ),
-          }),
-    ]
+const STATUS_TONE = {
+  initiated: 'warn',
+  booked: 'info',
+  ongoing: 'brand',
+  finished: 'good',
+  cancelled: 'bad',
+}
 
-    const [selectedFilters,setSelectedFilters] = useState({city:'',route:''})
+const STATUSES = [
+  { value: '', label: 'Any status' },
+  { value: 'initiated', label: 'Initiated (stuck)' },
+  { value: 'booked', label: 'Booked' },
+  { value: 'ongoing', label: 'Ongoing' },
+  { value: 'finished', label: 'Finished' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
 
-    const table = useReactTable({
-      data: rides,
-      columns,
-      getCoreRowModel: getCoreRowModel(),
-    })
+export default function HostRides() {
+  const { id } = useParams()
+  const router = useRouter()
 
-    async function onSubmit(e,data){
-        try 
-        {
-            e.preventDefault();
-            let res = await coreApi().post(`/booking/admin/create`,data)
-            setShowCreate(false)
-            await getRides()
-        } catch (error) {
-            ErrorToast(error.response.data.error.message)
-        }
+  const [searchText, setSearchText] = useState('')
+  const search = useDebounced(searchText)
+  const [status, setStatus] = useState('')
+  const [offset, setOffset] = useState(0)
+
+  const [rides, setRides] = useState([])
+  const [count, setCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    if (!id) return
+    setLoading(true)
+    try {
+      const res = await coreApi().get('/admin/booking', {
+        params: {
+          hostId: id,
+          populate: true,
+          offset,
+          limit: LIMIT,
+          search: search || undefined,
+          status: status || undefined,
+          sort: '-createdAt',
+        },
+      })
+      setRides(res.data?.data || [])
+      setCount(res.data?.totalCount || 0)
+      setError('')
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not load rides for this host.'))
+    } finally {
+      setLoading(false)
     }
+  }, [id, offset, search, status])
 
-    async function getRides(){
-        try 
-        {
-            let query = `hostId=${id}&populate=true&offset=${offset}&limit=${LIMIT}`
-            if(searchText) query+= `&search=${searchText}`
-            if(statusFilter && statusFilter !== '') query+= `&status=${statusFilter}`
-            if(cityFilter && cityFilter !== '') query+= `&cityId=${cityFilter}`
-            if(sort) query+= `&sort=${sort}`
-            let res = await coreApi().get(`/admin/booking?${query}`)
-            console.log('data',res.data)
-            if(res.data) 
-            {
-                setRides(res.data.data)
-                setCount(res.data.totalCount)
-            }
-        } catch (error) {
-            toast('Error getting products')
-        }
-    }
+  useEffect(() => { load() }, [load])
+  useEffect(() => { setOffset(0) }, [search, status])
 
-    async function getCities(){
-        try 
-        {
-            let res = await coreApi().get(`/city`)
-            if(res.data) 
-            {
-                setCities(res.data)
-            }
-        } catch (error) {
-            toast('Error getting products')
-        }
-    }
-
-    useEffect(()=>
+  const columns = [
     {
-        getCities();
-    },[])
-
-    useEffect(()=>
-    {
-        getRides();
-        getCities();
-    },[searchText,offset,sort,statusFilter,cityFilter])
-
-    const onClick = (id)=>
-    {
-        router.push(`/rides/${id}`)
-    }
-
-    const RightContent = ()=>
-    {
-        return  <div>
-        <button type='button' className='btn-md' onClick={()=>setShowCreate({status:true,edit:null})}>Add Ride</button>
+      accessorKey: 'bookingId',
+      id: 'booking',
+      header: 'Booking',
+      size: 200,
+      cell: ({ row }) => (
+        <div>
+          <p className='text-xs font-mono uppercase text-[#1a1a1a]'>{row.original.bookingId || '—'}</p>
+          <p className='text-[11px] text-[#959595]'>{getValidDateFormat(row.original.createdAt)}</p>
         </div>
-    }
+      ),
+    },
+    {
+      accessorKey: 'user',
+      id: 'rider',
+      header: 'Rider',
+      size: 200,
+      cell: ({ row }) => (
+        <div className='min-w-0'>
+          {/* The backend resolves names centrally now — do not re-invent a
+              fallback here, or the "Unknown" bug comes back one screen at a
+              time. */}
+          <p className='text-sm text-[#454545] truncate'>{row.original.user?.name || '—'}</p>
+          <p className='text-[11px] text-[#959595]'>{row.original.user?.contactNumber || ''}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'vehicle',
+      id: 'vehicle',
+      header: 'Vehicle',
+      size: 200,
+      cell: ({ row }) => (
+        <div className='min-w-0'>
+          <p className='text-sm text-[#454545] truncate'>{row.original.vehicle?.vehicleName || '—'}</p>
+          <p className='text-[11px] text-[#959595] font-mono'>{row.original.vehicle?.vehicleNumber || ''}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'startTime',
+      id: 'window',
+      header: 'Ride window',
+      size: 200,
+      cell: ({ row }) => (
+        <div>
+          <p className='text-xs text-[#454545]'>
+            {getValidDateFormat(row.original.startTime)} {getTimeFormat(row.original.startTime)}
+          </p>
+          <p className='text-[11px] text-[#959595]'>
+            to {getValidDateFormat(row.original.endTime)} {getTimeFormat(row.original.endTime)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      id: 'status',
+      header: 'Status',
+      size: 150,
+      cell: ({ row }) => (
+        <div>
+          <Pill tone={STATUS_TONE[row.original.status] || 'neutral'}>{row.original.status || '—'}</Pill>
+          {row.original.status === 'initiated' && (
+            <p className='text-[10px] text-amber-700 mt-1'>Payment taken, never confirmed</p>
+          )}
+        </div>
+      ),
+    },
+  ]
 
   return (
     <div className='w-full'>
-      <div className='flex items-stretch'>
-        <Header 
-          title={'Rides'} 
-          RightContent={RightContent} 
-          search={true} 
-          pagination={true} 
-          count={count} 
-          offset={offset} 
-          setOffset={setOffset} 
-          searchText={searchText} 
-          setSearchText={setSearchText}
-        />
+      <div className='flex items-center gap-3 flex-wrap mb-4'>
+        <SearchBox value={searchText} onChange={setSearchText} placeholder='Search rides' />
+        <FilterSelect value={status} onChange={setStatus} options={STATUSES} />
+        <span className='text-xs text-[#959595]'>
+          {loading ? 'Loading…' : `${count} ride${count === 1 ? '' : 's'}`}
+        </span>
+        <div className='ml-auto'><Pagination count={count} offset={offset} setOffset={setOffset} /></div>
       </div>
-      <div className='flex flex-1 w-full'>
-        <table>
-          <thead className='bg-[#f9f9f9]'>
-            {table.getHeaderGroups().map(headerGroup => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map(header => (
-                  <td key={header.id} className='text-left p-3'>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map(row => (
-              <tr key={row.id} onClick={() => onClick(row.original.bookingId)} className='hover:bg-gray-50 cursor-pointer'>
-                {row.getVisibleCells().map(cell => (
-                  <td key={cell.id} className='p-3 capitalize'>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      <ListState
+        loading={loading}
+        error={error}
+        onRetry={load}
+        isEmpty={rides.length === 0}
+        empty={(
+          <EmptyState
+            title={search || status ? 'No rides match these filters' : 'No rides yet'}
+            message="Bookings appear here as soon as a rider books one of this host's cars."
+          />
+        )}
+      >
+        <div className='bg-white border border-gray-100 rounded-lg overflow-hidden'>
+          <DataTable
+            columns={columns}
+            data={rides}
+            frozenColumns={['booking']}
+            enableSorting={false}
+            onRowClick={(row) => router.push(`/dashboard/rides/${row.bookingId || row.id}`)}
+          />
+        </div>
+      </ListState>
     </div>
   )
 }
