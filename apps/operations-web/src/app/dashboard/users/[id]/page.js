@@ -452,18 +452,27 @@ export default function UserDetailPage() {
   // Referrals and wallet load alongside the profile but are NOT allowed to
   // break it: a referral lookup failing must not blank out the review screen an
   // admin came here to use. Hence Promise.allSettled and the null defaults.
+  // The four-section chain, read from the server rather than recomputed here.
+  const [chain, setChain] = useState(null)
+
   const load = async () => {
     setLoading(true)
     try {
-      const [profile, referrals, wallet] = await Promise.allSettled([
+      const [profile, referrals, wallet, chainRes] = await Promise.allSettled([
         coreApi().get(`/admin/user-verification/${id}`),
         coreApi().get(`/admin/wallet/user/${id}/referrals`),
         coreApi().get(`/admin/wallet/user/${id}`),
+        coreApi().get(`/admin/user-verification/${id}/sections`),
       ])
       if (profile.status === 'rejected') throw profile.reason
       setData(profile.value.data)
       setReferrals(referrals.status === 'fulfilled' ? referrals.value.data : null)
       setWallet(wallet.status === 'fulfilled' ? wallet.value.data : null)
+      // allSettled, like the others: a chain that fails to load must not blank
+      // the review screen an admin came here to use. It leaves Approve
+      // unavailable, which is the safe direction — the server would refuse it
+      // anyway, and the page says why below.
+      setChain(chainRes.status === 'fulfilled' ? chainRes.value.data : null)
     } catch (error) {
       ErrorToast(error?.response?.data?.error || 'Could not load this user')
     } finally { setLoading(false) }
@@ -532,22 +541,33 @@ export default function UserDetailPage() {
   // happened. The response's `readyToApprove` says whether Approve would now
   // succeed.
   const profileNote = (res) =>
-    res?.readyToApprove ? ' — both documents verified, this profile is ready to approve' : ''
+    res?.complete ? ' — every section is verified, this profile is ready to approve' : ''
 
-  const setDocument = (docType, verified) => {
-    if (!verified) {
-      const why = window.prompt('Why is this document not acceptable? The user sees this.')
-      if (why === null) return
-      if (!why.trim()) { ErrorToast('A reason is required'); return }
-      return act(`reject ${docType}`, async () => {
-        await coreApi().post(`/admin/user-verification/${id}/document/${docType}`,
-          { verified: false, reason: why.trim() })
-        InfoToast('Document rejected — reject the profile below if this submission fails')
-      })
+  // THREE DECISIONS, NOT A BOOLEAN — see the server's verificationSections.js.
+  //
+  // The old call took `{verified: true|false}`, and `false` was recorded as a
+  // REJECTION carrying the filler reason "Verification withdrawn by admin". So
+  // an admin undoing a mis-click sent the user a rejection they then had to act
+  // on. Unverify is now its own decision and tells the user nothing, because
+  // nothing has been decided about them.
+  //
+  // `section` is the chain key (aadhaar | licence | kycCheck | photoMatch), not
+  // the document type — the same vocabulary the gate and the server's refusal
+  // message use, so all three say the same words.
+  const decide = (section, decision, label) => {
+    let reason = null
+    if (decision === 'rejected') {
+      const why = window.prompt(`Why is the ${label.toLowerCase()} not acceptable? The user sees this.`)
+      if (why === null) return undefined
+      if (!why.trim()) { ErrorToast('A reason is required'); return undefined }
+      reason = why.trim()
     }
-    return act(`verify ${docType}`, async () => {
-      const res = await coreApi().post(`/admin/user-verification/${id}/document/${docType}`, { verified: true })
-      InfoToast('Document verified' + profileNote(res.data))
+    return act(`${decision} ${section}`, async () => {
+      const res = await coreApi().post(
+        `/admin/user-verification/${id}/section/${section}`, { decision, reason },
+      )
+      const done = { verified: 'verified', unverified: 'moved back to pending', rejected: 'rejected' }[decision]
+      InfoToast(`${label} ${done}` + (decision === 'verified' ? profileNote(res.data) : ''))
     })
   }
 
@@ -584,14 +604,22 @@ export default function UserDetailPage() {
     suspend: byStatus.suspend && mayDecide,
     reactivate: byStatus.reactivate && mayDecide,
   }
-  const bothVerified = licence?.status === 'verified' && aadhaar?.status === 'verified'
-
-  // Mirrors the backend's approve gate exactly, so the UI never offers a button
-  // the server will refuse. The wording matches its error message too.
-  const outstanding = [
-    !aadhaar ? 'Aadhaar — not submitted' : aadhaar.status !== 'verified' ? `Aadhaar — ${aadhaar.status}` : null,
-    !licence ? 'Driving licence — not submitted' : licence.status !== 'verified' ? `Driving licence — ${licence.status}` : null,
-  ].filter(Boolean)
+  // ── The gate is READ FROM THE SERVER, never recomputed here ───────────────
+  //
+  // This used to mirror the backend's conditions in local code — two documents,
+  // hardcoded. Every time the gate changed, this copy had to change with it, and
+  // when it didn't the screen and the server disagreed about why Approve was
+  // disabled: the button greys out and the page explains a reason that is no
+  // longer the real one. The chain now comes from
+  // GET /admin/user-verification/:id/sections and the server's own refusal
+  // message is built from the same list, so they cannot drift.
+  //
+  // `chain` is null only while loading; treat that as "not ready" rather than
+  // "ready", or Approve flashes enabled on every page load.
+  const sections = chain?.sections || []
+  const chainComplete = !!chain?.complete
+  const outstanding = (chain?.outstanding || [])
+  const sectionOf = (key) => sections.find((sec) => sec.key === key)
   const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.name
 
   // Re-reads the stored SCAN through OCR. Available for both documents, and
@@ -608,8 +636,60 @@ export default function UserDetailPage() {
   // re-check buttons — they re-query a provider and write the result. A
   // view-only admin gets the document cards and the scans, and no action row at
   // all rather than a row of buttons that 403.
-  const docActions = (type, doc) => (!mayDecide ? null : (
-    <div className='flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-50'>
+  // ONE ACTION ROW FOR ALL FOUR SECTIONS.
+  //
+  // Verify / Unverify / Reject, offered only where the transition means
+  // something: no Verify on something already verified, no Unverify on
+  // something that was never verified. Buttons that do nothing teach people to
+  // stop reading them.
+  //
+  // Unverify is neutral, not destructive — it is a correction, and colouring it
+  // red would make the safe direction look like the dangerous one. Reject is the
+  // one that reaches the user, so it is the one in red.
+  const SectionActions = ({ sectionKey, label, extra = null }) => {
+    if (!mayDecide) return null
+    const sec = sectionOf(sectionKey)
+    const st = sec?.status
+    // 'missing' means nothing has been submitted — there is nothing to decide
+    // on yet, and offering Verify would let an admin approve an absence.
+    const submitted = st && st !== 'missing'
+    return (
+      <div className='flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-50'>
+        {extra}
+        {submitted && st !== 'verified' && (
+          <button disabled={!!busy} onClick={() => decide(sectionKey, 'verified', label)}
+            className='text-xs font-semibold border border-green-200 text-green-700 px-3 py-1.5 rounded-md disabled:opacity-50'>
+            Mark verified
+          </button>
+        )}
+        {st === 'verified' && (
+          <button disabled={!!busy} onClick={() => decide(sectionKey, 'unverified', label)}
+            className='text-xs font-semibold border border-gray-200 text-[#454545] px-3 py-1.5 rounded-md disabled:opacity-50'>
+            Unverify
+          </button>
+        )}
+        {submitted && st !== 'rejected' && (
+          <button disabled={!!busy} onClick={() => decide(sectionKey, 'rejected', label)}
+            className='text-xs font-semibold border border-red-200 text-red-600 px-3 py-1.5 rounded-md disabled:opacity-50'>
+            Reject
+          </button>
+        )}
+        {!submitted && (
+          <p className='text-[11px] text-[#959595] self-center'>
+            Nothing submitted yet — there is nothing to decide on.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  // The OCR / registry re-checks. They belong to the document cards only, so
+  // they are passed into the shared row as `extra` rather than living in it.
+  // Every one is a `users.update` on the server — including the re-checks, which
+  // re-query a provider and write the result — so a view-only admin gets the
+  // scans and no action row at all rather than buttons that 403.
+  const docExtras = (type, doc) => (
+    <>
       {/* type is the API's document key: 'kyc' for Aadhaar, 'licence'. */}
       <button disabled={!!busy} onClick={() => reRunOcr(type === 'kyc' ? 'aadhaar' : 'licence')}
         className='text-xs font-semibold border border-gray-200 px-3 py-1.5 rounded-md disabled:opacity-50'>
@@ -629,20 +709,16 @@ export default function UserDetailPage() {
           Re-check registry
         </button>
       )}
-      {doc && doc.status !== 'verified' && (
-        <button disabled={!!busy} onClick={() => setDocument(type, true)}
-          className='text-xs font-semibold border border-green-200 text-green-700 px-3 py-1.5 rounded-md disabled:opacity-50'>
-          Mark verified
-        </button>
-      )}
-      {doc && doc.status !== 'rejected' && (
-        <button disabled={!!busy} onClick={() => setDocument(type, false)}
-          className='text-xs font-semibold border border-red-200 text-red-600 px-3 py-1.5 rounded-md disabled:opacity-50'>
-          Reject document
-        </button>
-      )}
-    </div>
-  ))
+    </>
+  )
+
+  const docRow = (type, doc) => (
+    <SectionActions
+      sectionKey={type === 'kyc' ? 'aadhaar' : 'licence'}
+      label={type === 'kyc' ? 'Aadhaar' : 'Driving licence'}
+      extra={docExtras(type, doc)}
+    />
+  )
 
   return (
     <div className='max-w-5xl mx-auto pb-10'>
@@ -757,7 +833,7 @@ export default function UserDetailPage() {
 
       {/* Driving licence */}
       <Card title='Driving licence' status={licence?.status || 'missing'}
-        actions={licence ? docActions('licence', licence) : null}>
+        actions={docRow('licence', licence)}>
         {licence ? (
           <>
             <div className='grid md:grid-cols-2 gap-x-8'>
@@ -792,7 +868,7 @@ export default function UserDetailPage() {
       {/* Aadhaar — two faces, each read separately: the front carries the
           number/name/DOB, the back the address. */}
       <Card title='Aadhaar' status={aadhaar?.status || 'missing'}
-        actions={aadhaar ? docActions('kyc', aadhaar) : null}>
+        actions={docRow('kyc', aadhaar)}>
         {aadhaar ? (
           <>
             <div className='grid md:grid-cols-2 gap-x-8'>
@@ -830,13 +906,56 @@ export default function UserDetailPage() {
         )}
       </Card>
 
+      {/* ── KYC verification — a DIFFERENT question from the Aadhaar card ──
+          The card above is "is this scan real and does it match the profile".
+          This is "is this person's identity established", which the Aadhaar OTP
+          normally answers on its own. When the OTP could not run — a provider
+          outage, or the development bypass — it stays pending until an admin
+          says otherwise, and this is where they say it. */}
+      <Card title='KYC verification' status={sectionOf('kycCheck')?.status}
+        actions={<SectionActions sectionKey='kycCheck' label='KYC' />}>
+        {aadhaar?.otpVerified ? (
+          <p className='text-xs text-green-700'>
+            The Aadhaar OTP was verified — the holder proved control of the mobile number
+            registered against this Aadhaar. Nothing further is needed here.
+          </p>
+        ) : (
+          <p className='text-xs text-amber-700'>
+            No Aadhaar OTP is recorded against this profile. That is not necessarily the
+            user&apos;s fault — the provider may have been unreachable, or the development
+            bypass may be on. Verify here only if you have established their identity
+            another way.
+          </p>
+        )}
+        {sectionOf('kycCheck')?.reason && (
+          <p className='text-xs text-red-600 mt-2'>{sectionOf('kycCheck').reason}</p>
+        )}
+        <p className='text-[11px] text-[#959595] mt-2'>
+          A decision here overrides the OTP in both directions — including unverifying a
+          profile whose OTP passed.
+        </p>
+      </Card>
+
       {/* Faces first: it is the check most likely to fail a submission, and the
-          one that used to require opening three lightboxes in turn. */}
-      <FaceCompare
-        selfie={u.profilePhoto}
-        aadhaarFront={aadhaar?.imageKey}
-        licenceFront={licence?.frontImageKey}
-      />
+          one that used to require opening three lightboxes in turn.
+          It had no DECISION attached — a reviewer could compare the three faces
+          and had nowhere to record what they concluded. */}
+      <Card title='Photo / identity match' status={sectionOf('photoMatch')?.status}
+        actions={<SectionActions sectionKey='photoMatch' label='Photo match' />}>
+        <p className='text-xs text-[#757575] mb-3'>
+          Is the live selfie the same person as the photos printed on the Aadhaar and the
+          licence? Every document can be genuine and still belong to somebody else — this
+          is the only check that looks at the three faces together.
+        </p>
+        <FaceCompare
+          selfie={u.profilePhoto}
+          aadhaarFront={aadhaar?.imageKey}
+          licenceFront={licence?.frontImageKey}
+        />
+        {sectionOf('photoMatch')?.reason && (
+          <p className='text-xs text-red-600 mt-2'>{sectionOf('photoMatch').reason}</p>
+        )}
+      </Card>
 
       {/* ── 4. Referrals (marketing) ── */}
       <SectionHeading hint='Who brought them in, who they have brought in'>
@@ -857,15 +976,15 @@ export default function UserDetailPage() {
       <SectionHeading>Decision</SectionHeading>
       <div className='bg-white border border-gray-100 rounded-md p-5'>
         {status === 'pending' && (
-          bothVerified ? (
+          chainComplete ? (
             <p className='text-xs text-green-700 font-semibold mb-3'>
-              Both documents are verified — this profile is ready to approve. It stays
-              pending until you press Approve.
+              Every verification section is complete — this profile is ready to approve.
+              It stays pending until you press Approve.
             </p>
           ) : (
             <div className='mb-3'>
               <p className='text-xs text-amber-700 font-semibold'>
-                Approve is unavailable until every document is verified.
+                Approve is unavailable until every section is verified.
               </p>
               <ul className='mt-1.5 ml-4 list-disc'>
                 {outstanding.map((o) => (
@@ -873,8 +992,8 @@ export default function UserDetailPage() {
                 ))}
               </ul>
               <p className='text-[11px] text-[#757575] mt-1.5'>
-                Verify each document above, then approve here — verifying a document does
-                not activate the profile on its own. Reject with a reason if the details
+                Verify each section above, then approve here — verifying one does not
+                activate the profile on its own. Reject with a reason if the details
                 don&apos;t match.
               </p>
               {/* A profile reaches this queue as soon as the user finishes the
