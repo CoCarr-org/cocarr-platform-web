@@ -120,7 +120,7 @@ export default function Payments() {
 
     return (
         <div className='max-w-7xl mx-auto'>
-            <div className='flex justify-between items-stretch flex-1'>
+            <div>
                 <Header 
                     title={'Payments'} 
                     RightContent={RightContent} 
