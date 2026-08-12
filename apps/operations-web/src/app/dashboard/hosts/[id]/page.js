@@ -7,6 +7,7 @@ import { getValidDateFormat } from '@cocarr/shared-utils'
 import {
   Explainer, Field, FieldGrid, LoadingBlock, Pill, SectionCard, Stat, StatRow,
 } from '@/app/_components/ui'
+import { DOC_LABEL, DOC_PILL } from '@/app/_helpers/userStatus'
 import { useHost } from './_HostContext'
 
 // Host overview — identity, what they are owed against, and how they are paid.
@@ -34,12 +35,49 @@ const NameMatch = ({ account }) => {
   return <Pill tone='bad'>Name mismatch</Pill>
 }
 
+// A document's state, from the document ROW when there is one.
+//
+// `null` (never submitted) is deliberately distinct from `pending` (submitted,
+// awaiting review). The old screen collapsed both into "Not verified", which
+// tells an admin to chase a host who has already sent everything. The boolean
+// is only a fallback for a payload that predates the document tables.
+const docStatus = (doc, verifiedFlag) => {
+  if (doc?.status) return doc.status
+  if (verifiedFlag) return 'verified'
+  return 'missing'
+}
+
+const DocumentSummary = ({ label, status, number, name, note, mismatch }) => (
+  <div className='rounded-md border border-gray-100 bg-[#fafafa] p-4'>
+    <div className='flex items-center justify-between gap-2 mb-2'>
+      <p className='text-[11px] font-semibold uppercase tracking-tight text-[#757575]'>{label}</p>
+      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${DOC_PILL[status] || DOC_PILL.missing}`}>
+        {DOC_LABEL[status] || DOC_LABEL.missing}
+      </span>
+    </div>
+    <p className='text-sm font-medium text-[#454545] font-mono break-all'>{number || '—'}</p>
+    <p className='text-xs text-[#757575] capitalize'>{name || 'No name on file'}</p>
+    {mismatch && <p className='text-[11px] text-red-600 mt-1'>Name does not match the profile</p>}
+    {note && <p className='text-[10px] text-[#959595] mt-1'>{note}</p>}
+  </div>
+)
+
 const PayoutAccount = ({ account, dormant }) => (
   <div className={`rounded-md border p-4 ${dormant ? 'border-gray-100 bg-[#fafafa]' : 'border-gray-200 bg-white'}`}>
     <div className='flex items-center justify-between gap-3 mb-3 flex-wrap'>
       <div className='flex items-center gap-2 flex-wrap'>
         <p className='text-sm font-semibold text-[#1a1a1a]'>{account.bankName || 'Bank account'}</p>
         <Pill tone={dormant ? 'neutral' : 'good'}>{dormant ? 'Replaced' : 'Active'}</Pill>
+        {/* Verified and MANUALLY verified are different facts: the first came
+            back from a penny-drop against the registry, the second is an admin
+            override. Money moves either way, so which one it was matters. */}
+        {!dormant && (
+          <Pill tone={account.isVerified ? 'good' : 'warn'}>
+            {account.isVerified
+              ? (account.isManuallyVerified ? 'Verified by admin' : 'Bank-verified')
+              : 'Not verified'}
+          </Pill>
+        )}
         {!dormant && <NameMatch account={account} />}
       </div>
       {account.createdAt && (
@@ -84,6 +122,9 @@ export default function HostOverview() {
   if (loading && !host) return <LoadingBlock label='Loading host…' />
   if (!host) return null
 
+  // Resolved server-side from the USER's documents — `host.kyc*` is a set of
+  // columns nothing has ever written (see hostService.getHostById).
+  const v = host.verification || {}
   const accounts = Array.isArray(host.hostPayoutAccount) ? host.hostPayoutAccount : []
   const active = accounts.find((a) => a.isActive)
   const previous = accounts.filter((a) => !a.isActive)
@@ -124,26 +165,57 @@ export default function HostOverview() {
       </SectionCard>
 
       <SectionCard
-        title='KYC'
-        description='Identity verification on the host record. Payout is blocked until this is verified.'
+        title='Identity verification'
+        description='Aadhaar, PAN and driving licence. These belong to the person, not to the host role.'
+        actions={host.userId ? (
+          <Link href={`/dashboard/users/${host.userId}`} className='btn-md'>Review documents</Link>
+        ) : null}
       >
-        <div className='flex items-center gap-2 mb-4'>
-          <Pill tone={host.kycVerified ? 'good' : 'warn'}>
-            {host.kycVerified ? 'Verified' : 'Not verified'}
-          </Pill>
-        </div>
-        <FieldGrid cols={4}>
-          <Field label='KYC number' value={host.kycNumber} mono />
-          <Field label='Provider reference' value={host.kycRef} mono />
-        </FieldGrid>
-        {/* The host record's KYC flag is NOT the same as the user profile's
-            verification status, which is what gates booking. Saying so here
-            stops "verified" on one screen contradicting "pending" on the
-            other and reading as a bug. */}
-        <div className='mt-4'>
+        {/* ONE SUBMISSION COVERS BOTH ROLES, AND THE SCREEN SAYS SO.
+            Documents are keyed by USER id, and a host is a user — so somebody
+            who verified as a rider is already verified as a host. Without this
+            sentence an admin sees a verification panel on a second screen and
+            reasonably concludes a second submission is owed. */}
+        <div className='mb-4'>
           <Explainer>
-            This is the host record&apos;s own KYC flag. The user profile carries a separate verification
-            status that governs riding and booking — check the user profile if the two disagree.
+            Shared with the user profile. The same person books rides and lists cars, so they verify
+            <strong> once</strong> — if these are verified here, nothing further is needed for hosting,
+            and vice versa.
+          </Explainer>
+        </div>
+
+        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+          <DocumentSummary
+            label='Aadhaar / KYC'
+            status={docStatus(v.documents?.kyc, v.kycVerified)}
+            number={v.kycNumber}
+            name={v.kycName}
+            note='Masked server-side — read the number off the scan.'
+          />
+          <DocumentSummary
+            label='PAN'
+            status={docStatus(v.documents?.pan, v.panVerified)}
+            number={v.panNumber}
+            name={v.panName}
+            note={v.panProviderStatus ? `Registry: ${v.panProviderStatus}` : null}
+            mismatch={v.panNameMatch === false}
+          />
+          <DocumentSummary
+            label='Driving licence'
+            status={docStatus(v.documents?.licence, v.licenseVerified)}
+            number={v.licenseNumber}
+            name={v.licenseName}
+          />
+        </div>
+
+        <div className='mt-4'>
+          {/* The decision lives on ONE screen. Two screens acting on the same
+              document is how a document gets approved from whichever one
+              happens to show less evidence — the same rule the vehicle
+              overview follows by deferring to /review. */}
+          <Explainer>
+            Decisions are made on the user profile, where the scans, the extracted values and the provider
+            verdict are shown together. This panel reports; it does not decide.
           </Explainer>
         </div>
       </SectionCard>
@@ -169,13 +241,25 @@ export default function HostOverview() {
       </SectionCard>
 
       <SectionCard
-        title='Payout account'
+        title='Bank / payout account'
         description='Where settlements are paid. Only one account is active at a time.'
+        actions={(
+          <Link href='/dashboard/finance/bank-accounts'
+            className='text-xs font-semibold text-[#454545] hover:text-[#151515]'>
+            Verify in Host Bank Accounts →
+          </Link>
+        )}
       >
         {!active && previous.length === 0 && (
-          <p className='text-sm text-[#757575]'>
-            No payout account on file. The host adds one from the app; settlements cannot be released until they do.
-          </p>
+          <div className='rounded-md border border-amber-100 bg-amber-50 px-4 py-3'>
+            <p className='text-sm font-medium text-amber-800'>No bank account on file — settlements are blocked.</p>
+            {/* Naming the cause matters: an ops admin cannot add this for the
+                host, so the action is to chase them, not to look for a form. */}
+            <p className='text-xs text-amber-700 mt-1'>
+              The host adds this themselves from the app (Profile → Bank Details, or the listing wizard&apos;s
+              Bank step). Nothing can be paid out until they do — this is not something ops can enter for them.
+            </p>
+          </div>
         )}
         {active && <PayoutAccount account={active} />}
         {!active && previous.length > 0 && (
