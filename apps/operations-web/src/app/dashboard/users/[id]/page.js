@@ -914,25 +914,52 @@ export default function UserDetailPage() {
           says otherwise, and this is where they say it. */}
       <Card title='KYC verification' status={sectionOf('kycCheck')?.status}
         actions={<SectionActions sectionKey='kycCheck' label='KYC' />}>
-        {aadhaar?.otpVerified ? (
-          <p className='text-xs text-green-700'>
-            The Aadhaar OTP was verified — the holder proved control of the mobile number
-            registered against this Aadhaar. Nothing further is needed here.
-          </p>
-        ) : (
-          <p className='text-xs text-amber-700'>
-            No Aadhaar OTP is recorded against this profile. That is not necessarily the
-            user&apos;s fault — the provider may have been unreachable, or the development
-            bypass may be on. Verify here only if you have established their identity
-            another way.
-          </p>
-        )}
+        {/* THE OTP IS EVIDENCE, NOT A PASS. This said "nothing further is
+            needed here", which was wrong in the way that matters: it invited an
+            admin to skip the one section whose whole point is that a person
+            looked. Verifying is always their click. */}
+        {(() => {
+          const ev = sectionOf('kycCheck')?.evidence || {}
+          const stale = ev.verifiedNumber && ev.kycNumber && ev.verifiedNumber !== ev.kycNumber
+          return (
+            <>
+              {ev.otpVerified ? (
+                <p className='text-xs text-green-700'>
+                  The Aadhaar OTP was verified — the holder proved control of the mobile
+                  number registered against this Aadhaar. Check it against the rest of the
+                  profile, then mark this verified.
+                </p>
+              ) : (
+                <p className='text-xs text-amber-700'>
+                  No Aadhaar OTP is recorded against this profile. That is not necessarily
+                  the user&apos;s fault — the provider may have been unreachable, or the
+                  development bypass may be on. Verify only if you have established their
+                  identity another way.
+                </p>
+              )}
+              {ev.kycNumber && (
+                <p className='text-xs text-[#454545] mt-2'>
+                  Aadhaar on file: <span className='font-mono'>{ev.kycNumber}</span>
+                </p>
+              )}
+              {/* A verification is about a SPECIFIC number. If the user has since
+                  resubmitted a different Aadhaar, what was verified is no longer
+                  what is on file — and nothing else on this page would say so. */}
+              {stale && (
+                <p className='text-xs text-red-600 mt-2'>
+                  This was verified against <span className='font-mono'>{ev.verifiedNumber}</span>,
+                  which is not the Aadhaar currently on file. Re-check and verify again.
+                </p>
+              )}
+            </>
+          )
+        })()}
         {sectionOf('kycCheck')?.reason && (
           <p className='text-xs text-red-600 mt-2'>{sectionOf('kycCheck').reason}</p>
         )}
         <p className='text-[11px] text-[#959595] mt-2'>
-          A decision here overrides the OTP in both directions — including unverifying a
-          profile whose OTP passed.
+          This section is always your decision — a passing OTP does not verify it, and
+          verifying it does not activate the profile. Approve below does that.
         </p>
       </Card>
 
