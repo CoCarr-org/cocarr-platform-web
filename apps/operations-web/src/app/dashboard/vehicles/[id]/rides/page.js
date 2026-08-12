@@ -132,11 +132,14 @@ export default function Rides() {
     async function getRides(){
         try 
         {
-            let query = `hostId=${id}&populate=true&offset=${offset}&limit=${LIMIT}`
+            // WAS `hostId=${id}` — a VEHICLE id passed in the host slot. The
+            // route accepts both parameters, so nothing errored; it simply
+            // filtered bookings by a host that does not exist and this tab
+            // showed nothing for every vehicle on the platform.
+            let query = `vehicleId=${id}&populate=true&offset=${offset}&limit=${LIMIT}`
             if(searchText) query+= `&search=${searchText}`
             if(sort) query+= `&sort=${sort}`
             let res = await coreApi().get(`/admin/booking?${query}`)
-            console.log('data',res.data)
             if(res.data) 
             {
                 setRides(res.data.data)
