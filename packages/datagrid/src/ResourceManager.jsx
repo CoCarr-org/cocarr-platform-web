@@ -191,7 +191,10 @@ export default function ResourceManager({
       // The table cell resolves through the SAME options the editor uses, so a
       // column shows "Operations" rather than a raw uuid.
       const opts = field.options || remoteOptions[colKey] || []
-      return <span className='capitalize'>{opts.find((o) => String(o.value) === String(value))?.name || value || '—'}</span>
+      // Same label fallback as the editor's Select — a cell and its dropdown
+      // disagreeing about an option's name is worse than either being wrong.
+      const hit = opts.find((o) => String(o.value) === String(value))
+      return <span className='capitalize'>{hit?.label ?? hit?.name ?? value ?? '—'}</span>
     }
     if (colKey === 'createdAt' || colKey === 'updatedAt' || field?.type === 'date') {
       return value ? getDateTimeFormat(value) : '—'

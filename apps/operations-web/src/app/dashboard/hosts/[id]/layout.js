@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation'
 import { coreApi } from '@cocarr/api-sdk'
 import { apiErrorMessage } from '@cocarr/notifications'
 import { getValidDateFormat } from '@cocarr/shared-utils'
-import { NavigationTabBar } from '@cocarr/ui'
+import { NavigationTabBar, PageLayout } from '@cocarr/ui'
 import { Avatar, DetailHeader, ErrorState, Pill } from '@/app/_components/ui'
 import { HostContext } from './_HostContext'
 
@@ -60,7 +60,15 @@ export default function HostDetailLayout({ children }) {
 
   return (
     <HostContext.Provider value={value}>
-      <div className='max-w-7xl mx-auto px-6'>
+      {/* SAME THREE BANDS AS EVERY LIST SCREEN (see PageLayout):
+          navigation header -> tabs -> content. Detail screens used to be a
+          plain container with the header and tab bar scrolling away with the
+          page, so on a long tab you lost both which record you were in and the
+          means to leave it. The identity + tabs are now one sticky block and
+          only the data scrolls. */}
+      <div className='min-h-full min-w-0'>
+        <div className='sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur-sm'>
+          <div className='max-w-7xl mx-auto min-w-0 px-6'>
         <DetailHeader
           backHref='/dashboard/hosts'
           backLabel='All hosts'
@@ -84,18 +92,25 @@ export default function HostDetailLayout({ children }) {
           ] : []}
         />
 
-        <NavigationTabBar options={tabs} />
+          <NavigationTabBar options={tabs} />
+          </div>
+        </div>
 
         {/* Children are rendered even while the host is still loading, and even
             if it failed: the Rides and Vehicles tabs fetch their own data by id
             and are perfectly usable without the host record. Only the identity
             block above depends on it, so only that reports the failure. */}
-        {error && (
-          <div className='pt-4'>
-            <ErrorState message={error} onRetry={load} />
-          </div>
-        )}
-        <div className='py-6'>{children}</div>
+        {/* Content band — same max width and gutters as the header above, so
+            the two line up instead of the body sitting off-centre from its own
+            title. */}
+        <div className='max-w-7xl mx-auto min-w-0 px-6'>
+          {error && (
+            <div className='pt-4'>
+              <ErrorState message={error} onRetry={load} />
+            </div>
+          )}
+          <div className='py-6'>{children}</div>
+        </div>
       </div>
     </HostContext.Provider>
   )
