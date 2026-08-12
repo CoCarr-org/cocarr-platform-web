@@ -1048,7 +1048,7 @@ export default function UserDetailPage() {
         )}
 
         <div className='flex flex-wrap gap-2'>
-          {can.approve && bothVerified && (
+          {can.approve && chainComplete && (
             <button disabled={!!busy} onClick={approve}
               className='text-sm font-semibold bg-[#ECC032] text-black px-5 py-2 rounded-md disabled:opacity-50'>
               {busy === 'approve' ? '…' : 'Approve'}
