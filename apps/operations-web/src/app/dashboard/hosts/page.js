@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { ErrorToast, InfoToast } from '@cocarr/notifications'
+import { ErrorToast, InfoToast, apiErrorMessage } from '@cocarr/notifications'
 import { LIMIT, getDateFormat, getTimeFormat, getValidDateFormat, photoUrl } from '@cocarr/shared-utils'
 import { Header, Pagination, SearchInput } from '@cocarr/ui'
 import ManageUser from './_components/ManagerUser'
@@ -33,7 +33,9 @@ export default function Hosts() {
             setHosts(res.data.data)
             setCount(res.data.totalCount)
         } catch (error) {
-            ErrorToast(error.response.data.name)
+            // Was `error.response.data.name` — always undefined, so a failed load
+            // showed an EMPTY toast and looked like "no hosts exist".
+            ErrorToast(apiErrorMessage(error, 'Could not load hosts.'))
         }
     }
 
@@ -52,7 +54,7 @@ export default function Hosts() {
             setCount(0)
             await getHosts();
         } catch (error) {
-            ErrorToast(error.response.data.error.message)
+            ErrorToast(apiErrorMessage(error, 'Could not save the host.'))
         }
     }
 
@@ -73,7 +75,7 @@ export default function Hosts() {
             setDisableExport(false)
         } catch (error) {
             setDisableExport(false)
-            ErrorToast(error.response.data.name)
+            ErrorToast(apiErrorMessage(error, 'Could not export hosts.'))
         }
     };
 
