@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Header, SearchInput, Status } from '@cocarr/ui'
 import { coreApi } from '@cocarr/api-sdk'
 import { toast } from 'react-toastify'
-import { ErrorToast, InfoToast } from '@cocarr/notifications'
+import { ErrorToast, InfoToast, apiErrorMessage } from '@cocarr/notifications'
 import { BOOKING_BOOKED, BOOKING_CANCELLED, BOOKING_INITIATED, BOOKING_ONGOING, LIMIT, getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
 import ManageRide from './_components/ManageRide'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -126,7 +126,7 @@ export default function Rides({ initialStatus = '', title = 'Rides' } = {}) {
             setShowCreate(false)
             await getRides()
         } catch (error) {
-            ErrorToast(error.response.data.error.message)
+            ErrorToast(apiErrorMessage(error))
         }
     }
 

@@ -13,16 +13,20 @@ import {
 import { useCan } from '@cocarr/iam-sdk'
 import { FaceCompare } from '@cocarr/ui'
 
-// User detail — everything an admin needs to decide about one person, in the
-// order they need it:
+// User detail — everything an admin needs to decide about one person, grouped
+// into labelled sections (SectionHeading), in the order they are needed:
 //
-//   1. Who this is, their id, and the current status
-//   2. The details they entered
-//   3. Driving licence: extracted values, the scans, and its own status
-//   4. Aadhaar: the same
-//   5. Referrals and wallet — who brought them in, who they brought in, and
-//      every points transaction behind it
-//   6. The decision — approve / reject / suspend / reactivate
+//   1. Identity   — who this is, their id, and the current status
+//   2. Profile    — the details they entered, and the automated name match
+//   3. Documents  — driving licence and Aadhaar: extracted values, the scans,
+//                   each document's own status. Aadhaar is TWO-FACED — the front
+//                   OCR reads the number/name/DOB, the back OCR reads the address.
+//   4. Referrals  — a MARKETING record: who brought them in, who they brought in
+//   5. Wallet     — the user's points ACCOUNT (a bank statement): balance plus
+//                   every credit (referral and other) and debit (bookings).
+//                   Referral is one source that feeds this account, not the same
+//                   thing as it.
+//   6. Decision   — approve / reject / suspend / reactivate
 //
 // Aadhaar and PAN numbers are masked server-side by design. The reviewer reads
 // them OFF THE SCAN, which is why the images render up front rather than behind
@@ -66,7 +70,7 @@ const Row = ({ label, value, masked }) => (
 // user typed and with the profile. This IS the reviewer's job, so it is shown
 // as a first-class panel rather than buried — and the agree/disagree markers are
 // computed server-side so every screen judges it identically.
-const OcrPanel = ({ ocr }) => {
+const OcrPanel = ({ ocr, title = 'OCR' }) => {
   if (!ocr) return null
 
   const verdict = {
@@ -99,7 +103,7 @@ const OcrPanel = ({ ocr }) => {
   return (
     <div className={`mt-4 rounded-md px-4 py-3 border-l-2 ${verdict[0]}`}>
       <div className='flex items-center justify-between gap-3'>
-        <p className={`text-xs font-semibold ${verdict[1]}`}>OCR — {verdict[2]}</p>
+        <p className={`text-xs font-semibold ${verdict[1]}`}>{title} — {verdict[2]}</p>
         {ocr.checkedAt && (
           <p className='text-[10px] text-[#959595]'>{new Date(ocr.checkedAt).toLocaleString()}</p>
         )}
@@ -221,24 +225,18 @@ const PersonLine = ({ user, onOpenUser }) => {
   )
 }
 
-// Referrals in both directions, plus the wallet. Both directions matter and are
-// meaningless apart: who brought this person in, and who they have brought in
-// since. The wallet sits underneath because every referral reward lands there.
-// `onOpenLedger` is optional and currently unset: the platform-wide wallet
-// LEDGER screen (legacy `finance-wallet-transactions`) was not migrated, and the
-// link pointed at a route that does not exist, so the button 404'd. It is not
-// the same screen as Wallets — that answers "what is this balance?", the ledger
-// answers "why?" — so pointing it there would give a different answer to the
-// question being asked. The link returns when the ledger screen does.
-const ReferralPanel = ({ referrals, wallet, onOpenUser, onOpenLedger }) => (
+// ── Referrals — a MARKETING record, not the wallet ──────────────────────────
+// Who brought this person in, and who they have brought in since, in both
+// directions (meaningless apart). A referral is one SOURCE of wallet points; the
+// small credit note under each relationship shows what THAT referral produced.
+// The account itself — every credit and debit — lives in the Wallet section
+// below, because a wallet is the user's account and referral is only one of the
+// things that feeds it.
+const ReferralSection = ({ referrals, onOpenUser }) => (
   <div className='bg-white border border-gray-100 rounded-md p-5 mb-4'>
     <div className='flex items-center justify-between gap-3 mb-3'>
-      <p className='font-semibold text-sm'>Referrals &amp; wallet</p>
-      {onOpenLedger && (
-        <button onClick={onOpenLedger} className='text-[11px] font-semibold text-[#757575] hover:text-[#ECC032]'>
-          Full ledger →
-        </button>
-      )}
+      <p className='font-semibold text-sm'>Referrals</p>
+      <span className='text-[10px] uppercase tracking-tight text-[#bdbdbd] font-semibold'>Marketing</span>
     </div>
 
     {!referrals ? (
@@ -337,37 +335,72 @@ const ReferralPanel = ({ referrals, wallet, onOpenUser, onOpenLedger }) => (
         </div>
       </>
     )}
-
-    {wallet && (
-      <div className='border-t border-gray-50 pt-3 mt-3'>
-        <div className='flex items-center justify-between gap-3 mb-2'>
-          <p className='text-[10px] uppercase tracking-tight text-[#959595] font-semibold'>
-            Wallet
-          </p>
-          <p className='text-xs font-semibold text-[#454545]'>
-            {wallet.wallet?.walletPoints ?? 0} points
-            <span className='text-[11px] font-normal text-[#959595]'>
-              {' '}({wallet.wallet?.referralPoints ?? 0} from referrals)
-            </span>
-          </p>
-        </div>
-        {wallet.transactions?.length ? wallet.transactions.slice(0, 8).map((t) => (
-          <div key={t.id} className='flex justify-between gap-4 py-1 border-b border-gray-50 last:border-0'>
-            <p className='text-[11px] text-[#757575]'>
-              {t.description}
-              <span className='text-gray-400'> · {getValidDateFormat(t.createdAt)}</span>
-            </p>
-            <p className={`text-[11px] font-semibold shrink-0 ${t.isCredit ? 'text-green-700' : 'text-red-600'}`}>
-              {t.isCredit ? '+' : '−'}{t.points}
-            </p>
-          </div>
-        )) : (
-          <p className='text-xs text-[#959595]'>No wallet activity yet.</p>
-        )}
-      </div>
-    )}
   </div>
 )
+
+// ── Wallet — the user's points ACCOUNT, like a bank statement ───────────────
+// A wallet belongs to one user (a unique id, keyed by userId) and is created the
+// moment they become active. Points are earned by several means (referral is
+// one) — each earning is a CREDIT — and spent on bookings — each a DEBIT. This
+// section shows the balance and the full ledger, so an admin reads it the way
+// the user does: what is in the account, and every movement that got it there.
+const WalletStat = ({ label, value, hint }) => (
+  <div className='bg-[#fafafa] border border-gray-100 rounded-md px-3 py-2.5'>
+    <p className='text-lg font-semibold my-0'>{value}</p>
+    <p className='text-[11px] my-0 text-[#757575]'>{label}</p>
+    {hint ? <p className='text-[10px] my-0 text-[#bdbdbd]'>{hint}</p> : null}
+  </div>
+)
+
+const WalletSection = ({ wallet, ownerName }) => {
+  const w = wallet?.wallet || {}
+  const txns = wallet?.transactions || []
+  return (
+    <div className='bg-white border border-gray-100 rounded-md p-5 mb-4'>
+      <div className='flex items-center justify-between gap-3 mb-1'>
+        <p className='font-semibold text-sm'>Wallet</p>
+        <span className='text-[10px] uppercase tracking-tight text-[#bdbdbd] font-semibold'>Points account</span>
+      </div>
+      <p className='text-[11px] text-[#959595] mb-3'>
+        Belongs to <span className='font-semibold text-[#757575]'>{ownerName || 'this user'}</span>
+        {w.id
+          ? <span className='font-mono'> · {w.id}</span>
+          : ' · no wallet yet — created when the profile is approved'}
+        {w.status === false && <span className='text-amber-700'> · inactive</span>}
+      </p>
+
+      <div className='grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-4'>
+        <WalletStat label='Available points' value={w.walletPoints ?? 0} />
+        <WalletStat label='Points used' value={w.walletPointsUsed ?? 0} hint='spent on bookings' />
+        <WalletStat label='From referrals' value={w.referralPoints ?? 0} hint='of points earned' />
+      </div>
+
+      <p className='text-[10px] uppercase tracking-tight text-[#959595] font-semibold mb-2'>
+        Transactions
+      </p>
+      {txns.length ? (
+        <div>
+          {txns.map((t) => (
+            <div key={t.id} className='flex justify-between gap-4 py-1.5 border-b border-gray-50 last:border-0'>
+              <div className='min-w-0'>
+                <p className='text-[11px] text-[#454545] my-0 truncate'>{t.description || 'Wallet transaction'}</p>
+                <p className='text-[10px] text-gray-400 my-0'>
+                  {getValidDateFormat(t.createdAt)}
+                  {t.referenceType ? ` · ${t.referenceType}` : ''}
+                </p>
+              </div>
+              <p className={`text-xs font-semibold shrink-0 ${t.isCredit ? 'text-green-700' : 'text-red-600'}`}>
+                {t.isCredit ? '+' : '−'}{t.points}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className='text-xs text-[#959595]'>No wallet activity yet.</p>
+      )}
+    </div>
+  )
+}
 
 const Card = ({ title, status, children, actions }) => (
   <div className='bg-white border border-gray-100 rounded-md p-5 mb-4'>
@@ -384,147 +417,15 @@ const Card = ({ title, status, children, actions }) => (
   </div>
 )
 
-// ── Referral & rewards ──────────────────────────────────────────────────────
-// Everything the referral module knows about this user: their own code, the
-// people they referred (each with its reward state and points), whether they
-// were themselves referred, and the referral wallet transactions.
-
-const REF_PILL = {
-  rewarded: 'bg-green-50 text-green-700',
-  eligible: 'bg-blue-50 text-blue-600',
-  pending: 'bg-amber-50 text-amber-700',
-  cancelled: 'bg-gray-100 text-gray-500',
-  fraud: 'bg-red-50 text-red-600',
-}
-const REF_LABEL = {
-  rewarded: 'Reward credited',
-  eligible: 'Signed up · reward pending',
-  pending: 'Invited · pending verification',
-  cancelled: 'Cancelled',
-  fraud: 'Blocked',
-}
-const refDate = (d) => {
-  if (!d) return '—'
-  try { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) }
-  catch { return '—' }
-}
-
-const RefStat = ({ label, value }) => (
-  <div className='bg-[#fafafa] border border-gray-100 rounded-md px-3 py-2.5'>
-    <p className='text-lg font-semibold my-0'>{value}</p>
-    <p className='text-[11px] my-0 text-[#757575]'>{label}</p>
+// Segments the page into labelled groups so a reviewer scans by section —
+// Identity, Profile, Documents, Referrals, Wallet, Decision — rather than one
+// undifferentiated scroll.
+const SectionHeading = ({ children, hint }) => (
+  <div className='flex items-baseline gap-2 mt-6 mb-2 px-1'>
+    <p className='text-[11px] uppercase tracking-wide text-[#454545] font-bold my-0'>{children}</p>
+    {hint ? <p className='text-[11px] text-[#bdbdbd] my-0'>{hint}</p> : null}
   </div>
 )
-
-const ReferralCard = ({ referral, onOpenUser }) => {
-  if (!referral) return null
-  const { code, summary = {}, referredBy, referredUsers = [], walletTransactions = [] } = referral
-
-  return (
-    <Card title='Referral & rewards'>
-      {/* This user's own code */}
-      <div className='flex flex-wrap items-center gap-3 mb-4'>
-        {code ? (
-          <>
-            <span className='text-sm font-mono font-semibold bg-[#f3f3f3] px-2.5 py-1 rounded'>{code.code}</span>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${code.status === 'active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-              {code.status === 'active' ? 'active' : 'inactive'}
-            </span>
-            {code.activatedAt && <span className='text-[11px] text-[#959595]'>since {refDate(code.activatedAt)}</span>}
-          </>
-        ) : (
-          <span className='text-xs text-[#959595]'>No referral code yet — minted when this user becomes active.</span>
-        )}
-      </div>
-
-      {/* Summary */}
-      <div className='grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4'>
-        <RefStat label='Users referred' value={summary.referredCount ?? 0} />
-        <RefStat label='Points gained' value={summary.pointsGained ?? 0} />
-        <RefStat label='Pending' value={summary.pending ?? 0} />
-        <RefStat label='Completed' value={summary.completed ?? 0} />
-      </div>
-
-      {/* Referred by */}
-      {referredBy && (
-        <div className='mb-4 bg-[#fbfbfb] border border-gray-100 rounded-md px-3 py-2'>
-          <p className='text-[11px] text-[#757575] my-0'>
-            Referred by{' '}
-            <button className='font-semibold text-[#454545] underline'
-              onClick={() => referredBy.referrerId && onOpenUser(referredBy.referrerId)}>
-              {referredBy.name || 'Unknown'}
-            </button>
-            {' '}(code <span className='font-mono'>{referredBy.code}</span>) ·{' '}
-            <span className={`px-1.5 py-0.5 rounded-full font-semibold ${REF_PILL[referredBy.status] || REF_PILL.pending}`}>
-              {REF_LABEL[referredBy.status] || referredBy.status}
-            </span>
-            {referredBy.myReward > 0 && <span> · earned {referredBy.myReward} pts</span>}
-          </p>
-        </div>
-      )}
-
-      {/* Referred users + state + points */}
-      <p className='text-xs font-semibold text-[#454545] mb-2'>Referred users</p>
-      {referredUsers.length === 0 ? (
-        <p className='text-xs text-[#959595]'>Hasn&apos;t referred anyone yet.</p>
-      ) : (
-        <div className='overflow-x-auto'>
-          <table className='w-full'>
-            <thead className='bg-[#f9f9f9]'>
-              <tr>
-                <td><p className='text-[11px] text-[#959595]'>User</p></td>
-                <td><p className='text-[11px] text-[#959595]'>State</p></td>
-                <td><p className='text-[11px] text-[#959595]'>Joined</p></td>
-                <td><p className='text-[11px] text-[#959595] text-right'>Points earned</p></td>
-              </tr>
-            </thead>
-            <tbody>
-              {referredUsers.map((r) => (
-                <tr key={r.id} className='cursor-pointer hover:bg-[#fafafa]' onClick={() => onOpenUser(r.id)}>
-                  <td>
-                    <p className='text-xs font-medium my-0 capitalize'>{r.name || <span className='text-[#959595]'>No name</span>}</p>
-                    <p className='text-[10px] my-0 text-gray-400 font-mono break-all'>{r.id}</p>
-                  </td>
-                  <td>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${REF_PILL[r.status] || REF_PILL.pending}`}>
-                      {REF_LABEL[r.status] || r.status}
-                    </span>
-                  </td>
-                  <td><p className='text-xs my-0 text-[#555]'>{refDate(r.joinedAt)}</p></td>
-                  <td><p className='text-xs my-0 text-right font-semibold'>{r.pointsEarned > 0 ? `+${r.pointsEarned}` : '—'}</p></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Referral wallet transactions */}
-      {walletTransactions.length > 0 && (
-        <>
-          <p className='text-xs font-semibold text-[#454545] mt-4 mb-2'>Referral wallet transactions</p>
-          <div className='overflow-x-auto'>
-            <table className='w-full'>
-              <tbody>
-                {walletTransactions.map((t) => (
-                  <tr key={t.id} className='border-b border-gray-50 last:border-0'>
-                    <td><p className='text-xs my-0 text-[#555]'>{t.description}</p></td>
-                    <td><p className='text-[11px] my-0 text-[#959595]'>{refDate(t.createdAt)}</p></td>
-                    <td>
-                      <p className={`text-xs my-0 text-right font-semibold ${t.isCredit ? 'text-green-600' : 'text-red-500'}`}>
-                        {t.isCredit ? '+' : '−'}{t.points}
-                      </p>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </Card>
-  )
-}
 
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -541,7 +442,6 @@ export default function UserDetailPage() {
   const router = useRouter()
 
   const [data, setData] = useState(null)
-  const [referral, setReferral] = useState(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(null)
   const [dialog, setDialog] = useState(null) // 'reject' | 'suspend'
@@ -567,12 +467,6 @@ export default function UserDetailPage() {
     } catch (error) {
       ErrorToast(error?.response?.data?.error || 'Could not load this user')
     } finally { setLoading(false) }
-    // Referral picture is non-critical — never let it block the page. Loaded
-    // here too so it refreshes after an approval (which credits the reward).
-    try {
-      const rr = await coreApi().get(`/admin/user-referrals/${id}`)
-      setReferral(rr.data)
-    } catch { setReferral(null) }
   }
 
   useEffect(() => { if (id) load() }, [id])
@@ -719,8 +613,16 @@ export default function UserDetailPage() {
       {/* type is the API's document key: 'kyc' for Aadhaar, 'licence'. */}
       <button disabled={!!busy} onClick={() => reRunOcr(type === 'kyc' ? 'aadhaar' : 'licence')}
         className='text-xs font-semibold border border-gray-200 px-3 py-1.5 rounded-md disabled:opacity-50'>
-        Re-read scan (OCR)
+        {type === 'kyc' ? 'Re-read front (OCR)' : 'Re-read scan (OCR)'}
       </button>
+      {/* Aadhaar's back is a distinct scan (the address side), read into its own
+          columns, so it gets its own re-read. */}
+      {type === 'kyc' && doc?.backImageKey && (
+        <button disabled={!!busy} onClick={() => reRunOcr('aadhaar-back')}
+          className='text-xs font-semibold border border-gray-200 px-3 py-1.5 rounded-md disabled:opacity-50'>
+          Re-read back (OCR)
+        </button>
+      )}
       {type === 'licence' && (
         <button disabled={!!busy} onClick={() => recheck(type)}
           className='text-xs font-semibold border border-gray-200 px-3 py-1.5 rounded-md disabled:opacity-50'>
@@ -812,6 +714,9 @@ export default function UserDetailPage() {
       </div>
 
       {/* ── 2. Entered details ── */}
+      <SectionHeading hint='What the user entered, and the automated name match'>
+        Profile
+      </SectionHeading>
       <Card title='Profile details'>
         <div className='grid md:grid-cols-2 gap-x-8'>
           <Row label='Name' value={fullName} />
@@ -845,10 +750,12 @@ export default function UserDetailPage() {
         )}
       </Card>
 
-      {/* ── 2b. Referral & rewards ── */}
-      <ReferralCard referral={referral} onOpenUser={(uid) => router.push(`/dashboard/users/${uid}`)} />
+      {/* ── 3. Identity documents ── */}
+      <SectionHeading hint='Extracted values, the scans, and each document’s own status'>
+        Identity documents
+      </SectionHeading>
 
-      {/* ── 3. Driving licence ── */}
+      {/* Driving licence */}
       <Card title='Driving licence' status={licence?.status || 'missing'}
         actions={licence ? docActions('licence', licence) : null}>
         {licence ? (
@@ -882,7 +789,8 @@ export default function UserDetailPage() {
         )}
       </Card>
 
-      {/* ── 4. Aadhaar ── */}
+      {/* Aadhaar — two faces, each read separately: the front carries the
+          number/name/DOB, the back the address. */}
       <Card title='Aadhaar' status={aadhaar?.status || 'missing'}
         actions={aadhaar ? docActions('kyc', aadhaar) : null}>
         {aadhaar ? (
@@ -902,7 +810,15 @@ export default function UserDetailPage() {
               <DocumentThumb src={aadhaar.imageKey} label='Aadhaar (front)' />
               <DocumentThumb src={aadhaar.backImageKey} label='Aadhaar (back)' />
             </div>
-            <OcrPanel ocr={aadhaar.ocr} />
+            {/* The front reads the number/name/DOB; the back reads the address.
+                Both are OCR'd, so both verdicts are shown. */}
+            <OcrPanel ocr={aadhaar.ocr} title='Front OCR' />
+            <OcrPanel ocr={aadhaar.ocrBack} title='Back OCR (address)' />
+            {aadhaar.backImageKey && !aadhaar.ocrBack && (
+              <p className='text-[11px] text-[#959595] mt-2'>
+                The back of the Aadhaar has not been read yet — use “Re-read back (OCR)” below.
+              </p>
+            )}
             {!aadhaar.imageKey && (
               <p className='text-[11px] text-[#959595] mt-2'>
                 No scan attached — the number was verified by OTP only.
@@ -922,14 +838,23 @@ export default function UserDetailPage() {
         licenceFront={licence?.frontImageKey}
       />
 
-      {/* ── 5. Referrals and wallet ── */}
-      <ReferralPanel
+      {/* ── 4. Referrals (marketing) ── */}
+      <SectionHeading hint='Who brought them in, who they have brought in'>
+        Referrals
+      </SectionHeading>
+      <ReferralSection
         referrals={referrals}
-        wallet={wallet}
         onOpenUser={(uid) => router.push(`/dashboard/users/${uid}`)}
       />
 
+      {/* ── 5. Wallet (the user's points account) ── */}
+      <SectionHeading hint='Balance and every credit / debit — points earned and spent'>
+        Wallet
+      </SectionHeading>
+      <WalletSection wallet={wallet} ownerName={fullName} />
+
       {/* ── 6. The decision ── */}
+      <SectionHeading>Decision</SectionHeading>
       <div className='bg-white border border-gray-100 rounded-md p-5'>
         {status === 'pending' && (
           bothVerified ? (

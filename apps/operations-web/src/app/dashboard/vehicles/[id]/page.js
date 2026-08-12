@@ -1,341 +1,130 @@
 'use client'
-import { ImageSlider } from '@cocarr/ui'
-import { NoticeBar } from '@cocarr/ui'
-import { RcInfo } from '@cocarr/ui'
-import { SlidePopup } from '@cocarr/ui'
-import { ErrorToast, InfoToast } from '@cocarr/notifications'
-import { getDateFormat } from '@cocarr/shared-utils'
-import { Splide, SplideSlide } from '@splidejs/react-splide'
-import { coreApi } from '@cocarr/api-sdk'
+import React, { useState } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import React, { useEffect, useState } from 'react'
-import { BiRightArrow, BiSolidRightArrow } from 'react-icons/bi'
-import { FiArrowRight } from 'react-icons/fi'
+import { ImageSlider, RcInfo } from '@cocarr/ui'
+import { getValidDateFormat } from '@cocarr/shared-utils'
+import { STATUS_MEANING } from '@/app/_helpers/vehicleStatus'
+import {
+  EmptyState, Explainer, Field, FieldGrid, LoadingBlock, SectionCard, Stat, StatRow,
+} from '@/app/_components/ui'
+import { useVehicle } from './_VehicleContext'
 
-export default function VehicleInfo() {
+// Vehicle overview — the record, not the decision.
+//
+// THE DECISION MOVED OUT. This page carried a "Vehicle is Pending for Approval"
+// bar whose button opened a slide-in listing RC fields beside typed ones and
+// ending in a single Approve. That is a thinner version of the `/review` tab,
+// which reviews the RC and the host's PAN as documents, shows the host's
+// identity status, the payout account and the physical checks, and gates
+// Approve on `readyToApprove` from the server. Two screens approving the same
+// vehicle with different amounts of evidence in front of you is how a car gets
+// approved on the thinner one.
+//
+// The `menu` useState that PR #29 added a Verification entry to was never
+// rendered by anything — the tab bar lives in layout.js. That is why the review
+// screen has been unreachable from here; the layout now carries the tab and
+// this dead state is gone.
+//
+// `RcInfo` stays: reading the raw RC record is a lookup, not a decision.
 
-    const {id} = useParams()
-    // Verification sits FIRST after the overview: for a pending vehicle it is
-    // the only thing anyone opens this page to do, and burying it behind Rides
-    // and Reviews (both empty for a car that has never been booked) hides the
-    // one action the queue sends you here for.
-    const [menu,setMenu] = useState([{url:`/vehicles/${id}/`,label:`Vehicle Information`},{url:`/vehicles/${id}/review`,label:`Verification`},{url:`/vehicles/${id}/rides`,label:`Rides`},{url:`/vehicles/${id}/reviews`,label:`Reviews`}])
-    const [showManage,setShowManage] = useState({type:null,status:false,edit:null})
-    const [showApproval,setShowApproval] = useState(false)
-    const [vehicleInfo,setVehicleInfo] = useState([])
-    const [submitting,setSubmitting] = useState(false)
-    const [showRcInfo,setShowRcInfo] = useState(false)
+export default function VehicleOverview() {
+  const { id } = useParams()
+  const { vehicle, loading } = useVehicle()
+  const [showRc, setShowRc] = useState(false)
 
-    async function getVehicleInfo(){
+  if (loading && !vehicle) return <LoadingBlock label='Loading vehicle…' />
+  if (!vehicle) return null
 
-        try 
-        {
-            let res = await coreApi().get(`/admin/vehicle/${id}?`)
-            setVehicleInfo(res.data)
-        } catch (error) {
-            console.log('error',error)
-            ErrorToast('Error getting products')
-        }
-    }
-
-    useEffect(()=>
-    {
-        getVehicleInfo();
-    },[])
-
-
-    const onApprove = async (e)=>
-    {
-        e.preventDefault()
-        try
-        {
-            setSubmitting(true)
-            let res = await coreApi().post(`/admin/vehicle/${id}/approve`)
-            setShowApproval(false)
-            InfoToast('Vehicle approved successfully')
-            getVehicleInfo()
-        } catch (error) {
-            console.log('error',error)
-            ErrorToast('Error approving vehicle')
-        }
-        finally
-        {
-            setSubmitting(false)
-        }
-    }
-
-    const info = [
-        {
-            label:'Vehicle Info',
-            items:[
-                {
-                    label:'Vehicle Name',
-                    value:vehicleInfo?.vehicleName
-                },
-                {
-                    label:'Vehicle Number',
-                    value:vehicleInfo?.vehicleNumber
-                },
-                {
-                    label:'Vehicle Type',
-                    value:vehicleInfo?.vehicleType
-                },
-                {
-                    label:'Vehicle Brand',
-                    value:vehicleInfo?.brand?.name
-                },
-                {
-                    label:'Vehicle Color',
-                    value:vehicleInfo?.color
-                },
-                {
-                    label:'Vehicle Seats',
-                    value:vehicleInfo?.vehicleSeats
-                },
-                {
-                    label:'Vehicle Fuel Type',
-                    value:vehicleInfo?.vehicleFuelType
-                },
-                {
-                    label:'Vehicle Transmission',
-                    value:vehicleInfo?.vehicleTransmission
-                },
-                {
-                    label:'Vehicle Rating',
-                    value:vehicleInfo?.rating
-                },
-                {
-                    label:'No of Reviews',
-                    value:vehicleInfo?.reviews
-                },
-                {
-                    label:'Vehicle Status',
-                    value:vehicleInfo?.active ? 'Active' : 'Inactive'
-                },
-                {
-                    label:'RC Info',
-                    type:'popup',
-                    onClick:()=>setShowRcInfo(true)
-                },
-                {
-                    label:'RC Status',
-                    value:vehicleInfo?.rcVerified ? 'Verified' : 'Not Verified'
-                },
-                {
-                    label:'Manual Verification',
-                    value:vehicleInfo?.isAdminApproved ? 'Approved' : 'Not Approved'
-                }
-                
-            ]
-        },
-        {
-            label:'Host Info',
-            items:[
-                {
-                    label:'Host Name',
-                    value:vehicleInfo?.host?.name    
-                },
-                {
-                    label:'Host Email',
-                    value:vehicleInfo?.host?.email
-                },
-                {
-                    label:'Host Phone Number',
-                    value:vehicleInfo?.host?.contactNumber
-                }
-            ]
-        }
-    ]
-
+  const status = vehicle.approvalStatus || 'pending'
+  const images = Array.isArray(vehicle.images) ? vehicle.images : []
 
   return (
-        <div className='px-6 max-w-7xl mx-auto block  gap-x-6 bg-white w-full'>
+    <>
+      <StatRow cols={4}>
+        <Stat label='Rating' value={vehicle.rating ? Number(vehicle.rating).toFixed(1) : '—'}
+          hint={`${vehicle.reviews || 0} review${vehicle.reviews === 1 ? '' : 's'}`} />
+        <Stat label='Photos' value={images.length}
+          hint={images.length < 3 ? 'Usually too few to approve' : undefined} />
+        <Stat label='Listed' value={getValidDateFormat(vehicle.createdAt)} />
+        <Stat label='Host switch' value={vehicle.active === false ? 'Off' : 'On'}
+          hint="The host's own availability toggle" />
+      </StatRow>
 
-            {
-                !vehicleInfo.isAdminApproved ?
-                <NoticeBar message='Vehicle is Pending for Approval' onClick={()=>setShowApproval(true)} /> : null
-            }
-            <div>
-                {
-                    info.map((item,index)=>
-                    {
-                        return <div key={index} className='border-b border-b-slate-200 py-6 '>
-                            <p className='text-xs font-semibold text-[#959595] uppercase mb-4'>{item.label}</p>
-                            <div className='grid grid-cols-6 gap-x-4 gap-y-8'>
-                                {
-                                    item.items.map((item,i)=>
-                                    {
-                                        return <div key={i} className='text-left'>
-                                            <p className='text-xs text-[#757575]'>{item.label}</p>
-                                            {
-                                                item.type === 'popup' ? (
-                                                    <p onClick={item.onClick} className='text-xs font-medium text-[#1a4cf0] capitalize cursor-pointer underline hover:text-[#151515]'>
-                                                        View Info
-                                                    </p>
-                                                ) : (
-                                                    <p className='text-sm font-medium text-[#454545] capitalize'>{item.value}</p>
-                                                )
-                                            }
-                                        </div>
-                                    })
-                                }
-                            </div>
-                        </div>
-                    })
-                }
+      <SectionCard
+        title='Review status'
+        description={STATUS_MEANING[status]}
+        actions={<Link href={`/dashboard/vehicles/${id}/review`} className='btn-md'>Open review</Link>}
+      >
+        <FieldGrid cols={4}>
+          <Field label='Status' value={status} />
+          <Field label='Admin approved' value={vehicle.isAdminApproved ? 'Yes' : 'No'} />
+          <Field label='RC verified' value={(vehicle.vehicleRcVerified || vehicle.rcVerified) ? 'Yes' : 'No'} />
+          <Field label='Draft' value={vehicle.isDraft ? 'Not yet submitted' : 'Submitted'} />
+        </FieldGrid>
 
-                <div className='border-b border-b-slate-200 py-6 '>
-                    <p className='text-xs font-semibold text-[#959595] uppercase mb-4'>Vehicle Images</p>
-                    <div className='w-full'>
-                       <ImageSlider images={vehicleInfo?.images}/>
-                    </div>
-                </div>
-        </div>
-        {showApproval && <ApprovalModal onApprove={onApprove} id={id} show={showApproval} setShow={setShowApproval} submitting={submitting}/>}
-        {showRcInfo && <RcInfo show={showRcInfo} setShow={setShowRcInfo} id={id}/>}
-        </div>
+        {vehicle.rejectionReason && (
+          <div className='mt-4'>
+            <Explainer tone='warn'>
+              Rejected: {vehicle.rejectionReason} — editing the vehicle resubmits it and returns it to pending.
+            </Explainer>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title='Vehicle'
+        description='What the host entered when listing the car.'
+        actions={(
+          <button type='button' onClick={() => setShowRc(true)}
+            className='text-xs font-semibold text-[#454545] hover:text-[#151515]'>
+            View RC record →
+          </button>
+        )}
+      >
+        <FieldGrid cols={4}>
+          <Field label='Name' value={vehicle.vehicleName} />
+          <Field label='Registration' value={vehicle.vehicleNumber} mono />
+          <Field label='Brand' value={vehicle.brand?.name} />
+          <Field label='Type' value={vehicle.vehicleType} />
+          <Field label='Year' value={vehicle.vehicleYear} />
+          <Field label='Colour' value={vehicle.color} />
+          <Field label='Seats' value={vehicle.vehicleSeats} />
+          <Field label='Fuel' value={vehicle.vehicleFuelType} />
+          <Field label='Transmission' value={vehicle.vehicleTransmission} />
+          <Field label='Pickup city' value={vehicle.pickupPoint?.city?.name || 'No pickup set'} />
+        </FieldGrid>
+      </SectionCard>
+
+      <SectionCard
+        title='Host'
+        description='Who owns this car.'
+        actions={vehicle.hostId ? (
+          <Link href={`/dashboard/hosts/${vehicle.hostId}`}
+            className='text-xs font-semibold text-[#454545] hover:text-[#151515]'>
+            Open host →
+          </Link>
+        ) : null}
+      >
+        <FieldGrid cols={3}>
+          <Field label='Name' value={vehicle.host?.name} />
+          <Field label='Email' value={vehicle.host?.email} capitalize={false} />
+          <Field label='Phone' value={vehicle.host?.contactNumber} />
+        </FieldGrid>
+      </SectionCard>
+
+      <SectionCard title='Photos' description='What a rider sees on the listing.'>
+        {images.length === 0 ? (
+          <EmptyState
+            title='No photos'
+            message='A listing with no photographs cannot be approved — the in-person vehicle check needs something to check against.'
+          />
+        ) : (
+          <ImageSlider images={images} />
+        )}
+      </SectionCard>
+
+      {showRc && <RcInfo show={showRc} setShow={setShowRc} id={id} />}
+    </>
   )
-}
-
-
-const ApprovalModal = ({show,setShow,id,onApprove,submitting})=>
-{
-
-    const [approvalInfo,setApprovalInfo] = useState([])
-
-    const getApprovalInfo = async ()=>
-    {
-        try 
-        {
-            let res = await coreApi().get(`/admin/vehicle/${id}?rc=true`)
-            setApprovalInfo(res.data)
-        } catch (error) {
-            console.log('error',error)
-        }
-    }
-
-    useEffect(()=>
-    {
-        getApprovalInfo()
-    },[])
-
-    const info =[
-        {
-            label:'Vehicle Name',
-            value:approvalInfo?.vehicleName,
-            secondaryValue:approvalInfo?.rcVerificationData?.model
-        },
-        {
-            label:'Vehicle Number',
-            value:approvalInfo?.vehicleNumber,
-            secondaryValue:approvalInfo?.rcVerificationData?.reg_no
-        },
-        {
-            label:'Vehicle Type',
-            value:approvalInfo?.vehicleType,
-            secondaryValue:approvalInfo?.rcVerificationData?.body_type
-        },
-        {
-            label:'Vehicle Brand',
-            value:approvalInfo?.brand?.name,
-            secondaryValue:approvalInfo?.rcVerificationData?.vehicle_manufacturer_name
-        },
-        {
-            label:'Vehicle Color',
-            value:approvalInfo?.rcVerificationData?.vehicle_colour,
-        },
-        {
-            label:'Vehicle Seats',
-            value:approvalInfo?.vehicleSeats,
-            secondaryValue:approvalInfo?.rcVerificationData?.vehicle_seat_capacity
-        },
-        {
-            label:'Vehicle Fuel Type',
-            value:approvalInfo?.vehicleFuelType,
-            secondaryValue:approvalInfo?.rcVerificationData?.type
-        },
-        {
-            label:'Vehicle Model Year',
-            value:approvalInfo?.vehicleYear,
-            secondaryValue:approvalInfo?.rcVerificationData?.vehicle_manufacturing_month_year
-        },
-        {
-            label:'Vehicle Transmission',
-            value:approvalInfo?.vehicleTransmission,
-            secondaryValue:approvalInfo?.rcVerificationData?.transmission
-        },
-        {
-            label:'Vehicle Chassis Number',
-            value:approvalInfo?.rcVerificationData?.chassis,
-        },
-        {
-            label:'Vehicle Engine Number',
-            value:approvalInfo?.rcVerificationData?.engine,
-        },
-        {
-            label:'Vehicle Fuel Type',
-            value:approvalInfo?.vehicleFuelType,
-            secondaryValue:approvalInfo?.rcVerificationData?.type
-        }, 
-        {
-            label:'Vehicle Owner Name',
-            value:approvalInfo?.host?.name,
-            secondaryValue:approvalInfo?.rcVerificationData?.owner,
-        }, 
-        {
-            label:'Vehicle Owner Contact Number',
-            value:approvalInfo?.host?.contactNumber,
-        }, 
-        {
-            label:'Present Address',
-            value:approvalInfo?.rcVerificationData?.present_address,
-        }, 
-        {
-            label:'Permanent Address',
-            value:approvalInfo?.rcVerificationData?.permanent_address,
-        }, 
-        {
-            label:'Vehicle Insurance Upto',
-            value:getDateFormat(approvalInfo?.rcVerificationData?.vehicle_insurance_upto)
-        },
-        {
-            label:'Vehicle Insurance Company',
-            value:approvalInfo?.rcVerificationData?.vehicle_insurance_company_name,
-        },
-        {
-            label:'Vehicle Insurance Policy Number',
-            value:approvalInfo?.rcVerificationData?.vehicle_insurance_policy_number,
-        },
-        {
-            label:'Vehicl PUCC Number',
-            value:approvalInfo?.rcVerificationData?.pucc_number,
-        },
-        {
-            label:'Vehicle PUCC Expiry Date',
-            value:getDateFormat(approvalInfo?.rcVerificationData?.pucc_upto),
-        },
-        {
-            
-        }
-    ]
-
-    return(
-        <SlidePopup show={show} setShow={setShow} onClose={()=>setShow(false)} formName={'approvalForm'} title={'Vehicle Approval'} submitTitle={'Approve Vehicle'} submitting={submitting}>
-            <form onSubmit={onApprove} name='approvalForm' id="approvalForm">
-
-            <div className='w-full h-full bg-white grid grid-cols-2 gap-x-4 gap-y-4'>
-            {
-                info.map((item,i)=>
-                    {
-                        return <div key={i} className='text-left'>
-                            <p className='text-xs text-[#757575]'>{item.label}</p>
-                            <p className='text-sm font-medium text-[#454545] capitalize'>{item.value ? item.value : '-'}</p>
-                            <p className='text-xs font-medium text-[#cb8801]'>{item.secondaryValue ? item.secondaryValue : '-'}</p>
-                        </div>
-                    })
-                }
-            </div>
-                </form>
-        </SlidePopup>
-    )
 }

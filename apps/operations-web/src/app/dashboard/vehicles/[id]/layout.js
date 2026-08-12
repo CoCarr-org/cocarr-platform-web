@@ -1,73 +1,104 @@
 'use client'
-import React, { useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { coreApi } from '@cocarr/api-sdk'
-import { toast } from 'react-toastify'
-import { ErrorToast, InfoToast } from '@cocarr/notifications'
-import { SearchInput } from '@cocarr/ui'
-import { BOOKING_BOOKED, BOOKING_CANCELLED, BOOKING_INITIATED, BOOKING_ONGOING, LIMIT } from '@cocarr/shared-utils'
-import { getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
-import { Status } from '@cocarr/ui'
-// import { TabGroup } from '@cocarr/ui'
-import Link from 'next/link'
-import { Header } from '@cocarr/ui'
-import { SimpleHeader } from '@cocarr/ui'
+import { apiErrorMessage } from '@cocarr/notifications'
 import { NavigationTabBar } from '@cocarr/ui'
+import { STATUS_LABEL, STATUS_PILL } from '@/app/_helpers/vehicleStatus'
+import { DetailHeader, ErrorState, Pill, StatusPill, Thumb } from '@/app/_components/ui'
+import { VehicleContext } from './_VehicleContext'
 
-export default function VehicleInfoLayout({children}) {
-    const {id} = useParams()
-    const [searchText,setSearchText] = useState('')
-    const [vehicleInfo,setVehicleInfo] = useState([])
-    const [showCreate,setShowCreate] = useState({status:false,edit:null})
-    const [offset,setOffset] = useState(0);
-    const [count,setCount] = useState(5)
-    const [cities,setCities] = useState([])
-    const [cityFilter,setCityFilter] = useState('')
-    const [statusFilter,setStatusFilter] = useState('')
-    const [sort,setSort] = useState('-createdAt')
-    const router = useRouter()
-    const pathname = usePathname()
-    
+// Vehicle detail shell.
+//
+// TWO ROUTING BUGS FIXED HERE, BOTH INVISIBLE FROM THE CODE THAT HELD THEM:
+//
+//   1. The tab bar linked to `/dashboard/vehicles/{id}/payment`, which does not
+//      exist as a route — the Payments tab 404'd for every vehicle.
+//   2. It did NOT link to `/review`, which is the vehicle verification screen.
+//      That screen was reachable only from the approvals queue, so anyone
+//      arriving at a vehicle any other way could not get to the one page that
+//      decides whether it goes live.
+//
+// The header carries identity AND review status above the tab bar, so the
+// answer to "is this car approved?" does not depend on which tab is open. It
+// previously rendered a bare concatenated name and nothing else.
 
-    const [selectedFilters,setSelectedFilters] = useState({city:'',route:''})
-    const RightContent = ()=>
-    {
-        return null
+export default function VehicleDetailLayout({ children }) {
+  const { id } = useParams()
+  const [vehicle, setVehicle] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    if (!id) return
+    setLoading(true)
+    try {
+      const res = await coreApi().get(`/admin/vehicle/${id}`)
+      setVehicle(res.data || null)
+      setError('')
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not load this vehicle.'))
+    } finally {
+      setLoading(false)
     }
+  }, [id])
 
+  useEffect(() => { load() }, [load])
 
-    async function getVehicleInfo(){
+  const tabs = [
+    { label: 'Overview', url: `/dashboard/vehicles/${id}` },
+    { label: 'Review', url: `/dashboard/vehicles/${id}/review` },
+    { label: 'Availability', url: `/dashboard/vehicles/${id}/availability-schedule` },
+    { label: 'Rides', url: `/dashboard/vehicles/${id}/rides` },
+    { label: 'Reviews', url: `/dashboard/vehicles/${id}/reviews` },
+  ]
 
-        try 
-        {
-            let res = await coreApi().get(`/admin/vehicle/${id}?`)
-            console.log('data',res.data)
-            if(res.data) 
-            {
-                setVehicleInfo(res.data)
-            }
-        } catch (error) {
-            toast('Error getting products')
-        }
-    }
+  const cover = Array.isArray(vehicle?.images)
+    ? (vehicle.images.find((i) => i.isCover) || vehicle.images[0])?.url
+    : null
 
-    useEffect(()=>
-    {
-        getVehicleInfo();
-    },[])
+  const title = vehicle
+    ? [vehicle.brand?.name, vehicle.vehicleName].filter(Boolean).join(' ') || 'Vehicle'
+    : (loading ? 'Loading…' : 'Vehicle')
 
+  const value = React.useMemo(
+    () => ({ vehicle, loading, error, reload: load }),
+    [vehicle, loading, error, load],
+  )
 
   return (
-    <div className='max-w-7xl mx-auto flex flex-col'>
-        <SimpleHeader title={vehicleInfo.brand?.name ? `${vehicleInfo.brand?.name} ${vehicleInfo.vehicleName} (${vehicleInfo.vehicleNumber})` : '-'} parent='vehicles' RightContent={()=><div></div>}/>
+    <VehicleContext.Provider value={value}>
+      <div className='max-w-7xl mx-auto px-6'>
+        <DetailHeader
+          backHref='/dashboard/vehicles'
+          backLabel='All vehicles'
+          media={<Thumb src={cover} alt={title} className='w-20 h-14' />}
+          title={title}
+          subtitle={vehicle?.vehicleNumber}
+          pills={vehicle ? (
+            <>
+              <StatusPill status={vehicle.approvalStatus || 'pending'} labels={STATUS_LABEL} pills={STATUS_PILL} />
+              {/* The host's own on/off switch, which is not the same as the
+                  admin decision — an approved car with it off takes no
+                  bookings and nothing else on the page says so. */}
+              {vehicle.active === false && <Pill tone='warn'>Switched off by host</Pill>}
+              {vehicle.isDraft && <Pill tone='neutral'>Draft</Pill>}
+            </>
+          ) : null}
+          meta={vehicle ? [
+            { label: 'Host', value: vehicle.host?.name || vehicle.host?.user?.name },
+            { label: 'City', value: vehicle.pickupPoint?.city?.name || 'No pickup set' },
+            { label: 'Vehicle id', value: vehicle.id },
+          ] : []}
+        />
 
-                <NavigationTabBar options={[{url:`/dashboard/vehicles/${id}`,label:`Vehicle Info`},{url:`/dashboard/vehicles/${id}/availability-schedule`,label:`Availability Schedule`},{url:`/dashboard/vehicles/${id}/payment`,label:`Payments`},{url:`/dashboard/vehicles/${id}/rides`,label:`Rides`},{url:`/dashboard/vehicles/${id}/reviews`,label:`Reviews`}]}/>
+        <NavigationTabBar options={tabs} />
 
-        
-        <div className='flex flex-1 w-full'>
-            {children}
-        </div>
-    </div>
+        {/* Children render regardless: the Rides, Reviews and Availability tabs
+            fetch by id and are usable without the vehicle record. */}
+        {error && <div className='pt-4'><ErrorState message={error} onRetry={load} /></div>}
+        <div className='py-6'>{children}</div>
+      </div>
+    </VehicleContext.Provider>
   )
 }

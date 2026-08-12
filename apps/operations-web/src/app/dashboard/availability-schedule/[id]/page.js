@@ -1,147 +1,186 @@
 'use client'
-import { TabGroup } from '@cocarr/ui'
-import { coreApi } from '@cocarr/api-sdk'
+import React, { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import React, { useEffect, useState } from 'react'
+import { coreApi } from '@cocarr/api-sdk'
+import { apiErrorMessage } from '@cocarr/notifications'
+import { getDateTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
+import ScheduleTimeline, {
+  STATE_LABEL, STATE_TONE, TimelineLegend, scheduleState,
+} from '../_components/ScheduleTimeline'
+import {
+  DetailHeader, ErrorState, Explainer, Field, FieldGrid, LoadingBlock, Pill, SectionCard, Stat, StatRow,
+} from '@/app/_components/ui'
 
-export default function VehicleInfo() {
+// One availability window, and every block inside it.
+//
+// THIS SCREEN DID NOT EXIST. `[id]/page.js` rendered an empty `<div>` inside a
+// commented-out grid, so the route resolved and displayed nothing at all — and
+// the `[id]/layout.js` wrapped around it was a copy of the VEHICLE detail
+// layout: it fetched `/admin/vehicle/{scheduleId}` and its tab bar linked to
+// `/dashboard/vehicles/{scheduleId}`, feeding a schedule id into vehicle
+// routes. The layout and its two cloned Rides/Reviews tabs are deleted rather
+// than restyled; a schedule has neither.
+//
+// NEEDS cocarr-core-api's `getScheduleById` FIX. That query includes `Vehicle`
+// with no alias while the association is declared `as: 'vehicle'`, so Sequelize
+// throws before returning — the endpoint 500s for every id. This screen reports
+// that failure honestly instead of rendering blank, which is what the old one
+// did on the same error.
 
-    const {id} = useParams()
-    const [menu,setMenu] = useState([{url:`/vehicles/${id}/`,label:`Vehicle Information`},{url:`/vehicles/${id}/rides`,label:`Rides`},{url:`/vehicles/${id}/reviews`,label:`Reviews`}])
-    const [showManage,setShowManage] = useState({type:null,status:false,edit:null})
+const BLOCK_TONE = {
+  booked: 'brand',
+  blocked: 'neutral',
+  unavailable: 'neutral',
+  cancelled: 'bad',
+}
 
+const duration = (from, to) => {
+  const ms = new Date(to).getTime() - new Date(from).getTime()
+  if (!Number.isFinite(ms) || ms <= 0) return '—'
+  const hours = Math.round(ms / 3600000)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'}`
+  const days = Math.floor(hours / 24)
+  const rest = hours % 24
+  return `${days} day${days === 1 ? '' : 's'}${rest ? ` ${rest}h` : ''}`
+}
 
+export default function ScheduleDetail() {
+  const { id } = useParams()
+  const [schedule, setSchedule] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    if (!id) return
+    setLoading(true)
+    try {
+      const res = await coreApi().get(`/admin/schedule/${id}`)
+      setSchedule(res.data || null)
+      setError('')
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not load this schedule.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => { load() }, [load])
+
+  if (loading) return <div className='max-w-7xl mx-auto px-6 py-6'><LoadingBlock label='Loading schedule…' /></div>
+  if (error) {
+    return (
+      <div className='max-w-7xl mx-auto px-6 py-6'>
+        <ErrorState message={error} onRetry={load} />
+      </div>
+    )
+  }
+  if (!schedule) return null
+
+  const vehicle = schedule.vehicle || schedule.Vehicle || null
+  const state = scheduleState(schedule)
+  const blocks = [...(Array.isArray(schedule.scheduleBlocks) ? schedule.scheduleBlocks : [])]
+    .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+  const booked = blocks.filter((b) => b.status === 'booked')
 
   return (
-    <div>
-        <div className='py-4 px-6 max-w-7xl mx-auto block grid-cols-10 gap-x-6'>
-            <div className='col-span-2'>
-                <div className='mb-10'>
-                </div>
+    <div className='max-w-7xl mx-auto px-6'>
+      <DetailHeader
+        backHref='/dashboard/availability-schedule'
+        backLabel='All schedules'
+        title={vehicle?.vehicleName || 'Availability window'}
+        subtitle={`${getDateTimeFormat(schedule.startTime)} → ${getDateTimeFormat(schedule.endTime)}`}
+        pills={<Pill tone={STATE_TONE[state]}>{STATE_LABEL[state]}</Pill>}
+        meta={[
+          { label: 'Vehicle', value: vehicle?.vehicleNumber },
+          { label: 'Window', value: duration(schedule.startTime, schedule.endTime) },
+          { label: 'Schedule id', value: schedule.id },
+        ]}
+        actions={schedule.vehicleId ? (
+          <Link href={`/dashboard/vehicles/${schedule.vehicleId}`} className='btn-md'>Open vehicle</Link>
+        ) : null}
+      />
+
+      <div className='py-6'>
+        <StatRow cols={4}>
+          <Stat label='Blocks' value={blocks.length} hint='Bookings and host holds' />
+          <Stat label='Booked' value={booked.length} />
+          <Stat label='Window length' value={duration(schedule.startTime, schedule.endTime)} />
+          <Stat label='Listing status' value={schedule.status || 'available'} />
+        </StatRow>
+
+        <SectionCard
+          title='The window'
+          description='Green is open time. Everything drawn on it is time already committed.'
+        >
+          <ScheduleTimeline schedule={schedule} height='h-10' />
+          <div className='mt-3'><TimelineLegend /></div>
+
+          <div className='mt-5'>
+            <FieldGrid cols={4}>
+              <Field label='Opens' value={getDateTimeFormat(schedule.startTime)} capitalize={false} />
+              <Field label='Closes' value={getDateTimeFormat(schedule.endTime)} capitalize={false} />
+              <Field label='Created' value={getValidDateFormat(schedule.createdAt)} />
+              <Field label='Withdrawn' value={schedule.deleted ? 'Yes' : 'No'} />
+            </FieldGrid>
+          </div>
+
+          {schedule.deleted && (
+            <div className='mt-4'>
+              <Explainer tone='warn'>
+                This window was withdrawn by the host. Bookings already made inside it are unaffected — they
+                are on the blocks below and still need to be honoured.
+              </Explainer>
             </div>
-            <div className='col-span-8'>
-            {/* <Outlet/> */}
-        </div>
-        
-        </div>
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title='Blocks'
+          description='Every period carved out of the window, in the order they occur.'
+        >
+          {blocks.length === 0 ? (
+            <p className='text-sm text-[#757575]'>
+              Nothing booked or blocked. The whole window is open.
+            </p>
+          ) : (
+            <div className='overflow-x-auto'>
+              <table className='w-full text-sm'>
+                <thead>
+                  <tr className='text-left text-[11px] uppercase tracking-tight text-[#757575] border-b border-gray-100'>
+                    <th className='px-3 py-2 font-semibold'>From</th>
+                    <th className='px-3 py-2 font-semibold'>To</th>
+                    <th className='px-3 py-2 font-semibold'>Length</th>
+                    <th className='px-3 py-2 font-semibold'>Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {blocks.map((b, i) => {
+                    // A block reaching outside the window is usually a booking
+                    // that outlived the availability it was made against —
+                    // worth flagging on the row, not just at the bar's edge.
+                    const outside = new Date(b.startTime) < new Date(schedule.startTime)
+                      || new Date(b.endTime) > new Date(schedule.endTime)
+                    return (
+                      <tr key={i} className='border-b border-gray-50'>
+                        <td className='px-3 py-2 text-xs'>{getDateTimeFormat(b.startTime)}</td>
+                        <td className='px-3 py-2 text-xs'>{getDateTimeFormat(b.endTime)}</td>
+                        <td className='px-3 py-2 text-xs text-[#757575]'>{duration(b.startTime, b.endTime)}</td>
+                        <td className='px-3 py-2'>
+                          <Pill tone={BLOCK_TONE[b.status] || 'neutral'}>{b.status || 'blocked'}</Pill>
+                          {outside && (
+                            <span className='text-[11px] text-red-600 ml-2'>extends past the window</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
+      </div>
     </div>
   )
 }
-
-
-const MenuItem = ({item})=>
-{
-    // return <Link to={item.url} className='block rounded-md mb-2 items-center py-3 px-4 bg-white border border-slate-200'>
-    //     <div className='flex items-center '>
-    //         <p className='text-sm font-medium tracking-tight text-[#454545] mr-2'>{item.label}</p>
-    //     </div>
-    //     </Link>
-    return <TabGroup options={[]}/>
-}
-
-
-
-
-
-// const ManageRoute = ({setShow,onSubmit,edit=false})=>
-// {
-//     const [route,setRoute] = useState({id:null,routeName:'',routeCity:'',stops:[{stopName:'',stopNumber:1,isStartingPoint:false,isEndingPoint:false},{stopName:'',stopNumber:2,isStartingPoint:true,isEndingPoint:false},{stopName:'',stopNumber:4,isStartingPoint:false,isEndingPoint:true}]})
-//     const [loading,setLoading] = useState(edit ? true : false)
-//     const [cities,setCities] = useState([])
-//     useEffect(()=>
-//     {
-//         async function getRouteInfo(){
-//             if(edit)
-//             {
-//                 let res = await coreApi().get(`/route/${edit}?populate=true`)
-//                 console.log(res.data.data)
-//                 setRoute({id:res.data.data.id,routeName:res.data.data.routeName,stops:res.data.data.stops})
-//                 setLoading(false)
-//             }
-//         }
-//         async function getCities(){
-//                 let res = await coreApi().get(`/city`)
-//                 setCities(res.data.data)
-//         }
-//         getRouteInfo()
-//         getCities()
-//     },[])
-
-
-//     const updateStop = (value,index)=>
-//     {
-//         setRoute((prev)=>
-//         {
-//             let newData = {...prev}
-//             newData.stops[index] = {...prev.stops[index],stopName:value} 
-//             return newData;
-//         })
-//     }
-
-//     const toggleStop = (add=true)=>
-//     {
-//         if(add) 
-//         {
-//             setRoute((prev)=>
-//             {
-//                 let newData = {...prev}
-//                 newData.stops = [{...prev.stops[0]},{...prev.stops[1]},{stopName:'',stopNumber:3,isStartingPoint:false,isEndingPoint:false},{...prev.stops[2]}]
-//                 console.log('newdat',newData)
-//                 return newData;
-//             })
-//         }
-//         else 
-//         {
-//             setRoute((prev)=>
-//             {
-//                 let newData = {...prev}
-//                 newData.stops = [{...prev.stops[0]},{...prev.stops[1]},{...prev.stops[3]}]
-//                 return newData;
-//             })
-//         }
-//     }
-//     return loading ? 'loading' :<Popup onClose={()=>setShow({type:null,status:false})}  title={edit ?  'Edit Pickup Point' : 'Add Pickup Point'} submitTitle={edit ? 'Update' : 'Add'} formName={'createRoute'}>
-//         <form className='w-full' onSubmit={(e)=>onSubmit(e,route)} id="createRoute">
-//             <div>
-//                 <label>Pickup Point Name</label>
-//                 <Input placeholder={'Enter Pickup Point Name'} value={route.routeName} setValue={(value)=>setRoute(route=>({...route,routeName:value}))} required={true}/>
-//             </div>
-//             <div>
-//                 <label>City</label>
-//                 <Select placeholder={'Select City'} customLabel={'cityName'} options={cities} customValue={'id'} value={edit ? route.routeCity.id : route.routeCity} setValue={(value)=>setRoute(data=>({...data,routeCity:value}))}/>
-//             </div>
-//             <div>
-//                 <label>Route Stops</label>
-//                 <div className="flex my-2 items-center">
-//                     <div className="w-3 h-3 bg-green-400 rounded-lg">
-//                     </div>
-//                     <p className="text-xs font-medium text-[#757575] my-0 ml-2 mr-4 tracking-tight w-[80px]">First Stop</p>
-//                 <Input placeholder={'Enter Stop Name'} value={route.stops[0].stopName} setValue={(value)=>updateStop(value,0)} required={true} padding={false}/>
-//                 </div>
-//                 {
-//                     route.stops.map((item,index)=>
-//                     {
-//                         if(parseInt(item?.stopNumber) === 1 || parseInt(item?.stopNumber) === 4) return false;
-//                         else if (item ) return <div className="flex my-2 items-center">
-//                         <div className="w-3 h-3 bg-gray-400 rounded-lg">
-//                             </div>
-//                             <p className="text-xs font-medium text-[#757575] my-0 ml-2 mr-4 tracking-tight w-[80px]">{index === 1 ? 'Second Stop' : 'Third Stop'}</p>
-//                         <Input placeholder={'Enter Stop Name'} value={route.stops[index].stopName} setValue={(value)=>updateStop(value,index)} required={true} padding={false}/>
-//                         <div>
-//                             {route.stops.length <= 3 && item.stopNumber === 2 ? <button type='button' className='btn-xs-inverted ml-2' onClick={()=>toggleStop(true)}>Add</button> : null}
-//                             {route.stops.length >= 3 && item.stopNumber === 3 ? <button type='button' className='btn-xs-inverted ml-2' onClick={()=>toggleStop(false)}>Remove</button> : null}
-//                         </div>
-//                         </div>
-
-//                     })
-//                 }
-//                 <div className="flex my-2 items-center">
-//                 <div className="w-3 h-3 bg-red-400 rounded-lg">
-//                     </div>
-//                     <p className="text-xs font-medium text-[#757575] my-0 ml-2 mr-4 tracking-tight w-[80px]">Last Stop</p>
-//                 <Input placeholder={'Enter Stop Name'} value={route.stops[route.stops.length-1].stopName} setValue={(value)=>updateStop(value,route.stops.length-1)} required={true} padding={false}/>
-//                 </div>
-//             </div>
-//         </form>
-//     </Popup>
-// }

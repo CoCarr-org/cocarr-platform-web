@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
-import { InfoToast } from '@cocarr/notifications'
+import { InfoToast, apiErrorMessage } from '@cocarr/notifications'
 import { BOOKING_BOOKED, BOOKING_CANCELLED, BOOKING_FINISHED, BOOKING_ONGOING, LIMIT } from '@cocarr/shared-utils'
 import { getDateFormat, getDateTimeFormat, getTimeFormat } from '@cocarr/shared-utils'
 import { photoUrl } from '@cocarr/shared-utils'
@@ -39,7 +39,7 @@ export default function RideInfo() {
             setLoading(false)
         } catch (error) {
             setLoading(false)
-            InfoToast(error.response.data.error.message)
+            InfoToast(apiErrorMessage(error))
         }
     }
     useEffect(() => {
@@ -59,8 +59,8 @@ export default function RideInfo() {
             setLoading(false)
         } catch (error) {
             setLoading(false)
-            console.log(error.response.data.error.message)
-            InfoToast(error.response.data.error.message)
+            console.log(apiErrorMessage(error))
+            InfoToast(apiErrorMessage(error))
         }
     }
 
@@ -75,8 +75,8 @@ export default function RideInfo() {
             setLoading(false)
         } catch (error) {
             setLoading(false)
-            console.log(error.response.data.error.message)
-            InfoToast(error.response.data.error.message)
+            console.log(apiErrorMessage(error))
+            InfoToast(apiErrorMessage(error))
         }
     }
 
@@ -91,8 +91,8 @@ export default function RideInfo() {
             setLoading(false)
         } catch (error) {
             setLoading(false)
-            console.log(error.response.data.error.message)
-            InfoToast(error.response.data.error.message)
+            console.log(apiErrorMessage(error))
+            InfoToast(apiErrorMessage(error))
         }
     }
 
@@ -108,7 +108,7 @@ export default function RideInfo() {
         } catch (error) {
             setSubmitting(false)
             // console.log(error.response.data.error[0])
-            InfoToast(error.response.data.error[Object.keys(error.response.data.error)[0]])
+            InfoToast(apiErrorMessage(error))
         }
     }
 

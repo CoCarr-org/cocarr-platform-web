@@ -1,68 +1,102 @@
 'use client'
-import React, { useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { toast } from 'react-toastify'
 import { coreApi } from '@cocarr/api-sdk'
-import { SimpleHeader } from '@cocarr/ui'
+import { apiErrorMessage } from '@cocarr/notifications'
+import { getValidDateFormat } from '@cocarr/shared-utils'
 import { NavigationTabBar } from '@cocarr/ui'
+import { Avatar, DetailHeader, ErrorState, Pill } from '@/app/_components/ui'
+import { HostContext } from './_HostContext'
 
-export default function RideInfoLayout({children}) {
+// Host detail shell — identity, status and tabs.
+//
+// The header sits ABOVE the tab bar and does not change as you move between
+// tabs, so it always answers "whose record am I looking at?". Previously the
+// layout rendered a bare `SimpleHeader` with the host's name and nothing else:
+// on the Rides or Vehicles tab there was no way to tell an unverified host from
+// a verified one without navigating back to the overview.
+//
+// The host is fetched ONCE here and handed down through context. The overview
+// tab used to issue the same `GET /host/:id` a second time, so opening the page
+// made two identical requests and the two copies could disagree for a beat.
 
-    const [searchText,setSearchText] = useState('')
-    const params = useParams()
-    const id = params?.id
-    const [hostInfo,setHostInfo] = useState([])
-    const [showCreate,setShowCreate] = useState({status:false,edit:null})
-    const [offset,setOffset] = useState(0);
-    const [count,setCount] = useState(5)
-    const [cities,setCities] = useState([])
-    const [cityFilter,setCityFilter] = useState('')
-    const [statusFilter,setStatusFilter] = useState('')
-    const [sort,setSort] = useState('-createdAt')
-    const router = useRouter()
-    const pathname = usePathname()
-    
+export default function HostDetailLayout({ children }) {
+  const { id } = useParams()
+  const [host, setHost] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-    const [selectedFilters,setSelectedFilters] = useState({city:'',route:''})
-    const RightContent = ()=>
-    {
-        return null
+  const load = useCallback(async () => {
+    if (!id) return
+    setLoading(true)
+    try {
+      const res = await coreApi().get(`/host/${id}`)
+      setHost(res.data || null)
+      setError('')
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not load this host.'))
+    } finally {
+      setLoading(false)
     }
+  }, [id])
 
+  useEffect(() => { load() }, [load])
 
-    async function getHostInfo(){
+  const tabs = [
+    { label: 'Overview', url: `/dashboard/hosts/${id}` },
+    { label: 'Vehicles', url: `/dashboard/hosts/${id}/vehicles` },
+    { label: 'Rides', url: `/dashboard/hosts/${id}/rides` },
+    { label: 'Payouts', url: `/dashboard/hosts/${id}/payment` },
+  ]
 
-        try 
-        {
-            if(id)
-            {
-                let res = await coreApi().get(`/host/${id}?`)
-                setHostInfo(res.data)
-            }
-        } catch (error) {
-            ErrorToast('Error getting products')
-        }
-    }
+  const name = host?.name || host?.user?.name
 
-    useEffect(()=>
-    {
-        getHostInfo();
-    },[])
-
-    const menu = [{label:'Host Info',url:`/dashboard/hosts/${id}`},{label:'Rides',url:`/dashboard/hosts/${id}/rides`},{label:'Payment',url:`/dashboard/hosts/${id}/payment`},{label:'Vehicles',url:`/dashboard/hosts/${id}/vehicles`}]
+  // Memoised, or every render of the layout hands the tabs a new object and
+  // re-renders all of them for no change.
+  const value = React.useMemo(
+    () => ({ host, loading, error, reload: load }),
+    [host, loading, error, load],
+  )
 
   return (
-    <div className='max-w-7xl mx-auto'>
-        <SimpleHeader title={hostInfo.name} parent='hosts' parentLink='hosts' RightContent={()=><div></div>}/>
+    <HostContext.Provider value={value}>
+      <div className='max-w-7xl mx-auto px-6'>
+        <DetailHeader
+          backHref='/dashboard/hosts'
+          backLabel='All hosts'
+          media={<Avatar src={host?.profilePhoto} name={name} size={52} />}
+          title={loading && !host ? 'Loading…' : (name || 'Unnamed host')}
+          subtitle={host?.email || host?.user?.email}
+          pills={host ? (
+            <>
+              <Pill tone={host.isActive === false ? 'bad' : 'good'}>
+                {host.isActive === false ? 'Inactive' : 'Active'}
+              </Pill>
+              <Pill tone={host.kycVerified ? 'good' : 'warn'}>
+                {host.kycVerified ? 'KYC verified' : 'KYC pending'}
+              </Pill>
+            </>
+          ) : null}
+          meta={host ? [
+            { label: 'Phone', value: `${host.countryCode || ''} ${host.contactNumber || ''}`.trim() },
+            { label: 'Joined', value: getValidDateFormat(host.createdAt) },
+            { label: 'Host id', value: host.id },
+          ] : []}
+        />
 
-            <NavigationTabBar options={menu}/>
-        
-        <div className='flex flex-1  w-full overflow-scroll'>
-            {children}
-        </div>
-    </div>
+        <NavigationTabBar options={tabs} />
+
+        {/* Children are rendered even while the host is still loading, and even
+            if it failed: the Rides and Vehicles tabs fetch their own data by id
+            and are perfectly usable without the host record. Only the identity
+            block above depends on it, so only that reports the failure. */}
+        {error && (
+          <div className='pt-4'>
+            <ErrorState message={error} onRetry={load} />
+          </div>
+        )}
+        <div className='py-6'>{children}</div>
+      </div>
+    </HostContext.Provider>
   )
 }
-
-

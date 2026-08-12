@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { ErrorToast, InfoToast } from '@cocarr/notifications'
+import { ErrorToast, InfoToast, apiErrorMessage } from '@cocarr/notifications'
 import { LIMIT, getDateFormat, getTimeFormat, getValidDateFormat } from '@cocarr/shared-utils'
 import { Header, Pagination, SearchInput } from '@cocarr/ui'
 // import ManageUser from './_components/ManagerUser'
@@ -26,7 +26,7 @@ export default function Membership() {
             setMemberships(res.data.data)
             setCount(res.data.totalCount)
         } catch (error) {
-            ErrorToast(error.response.data.name)
+            ErrorToast(apiErrorMessage(error))
         }
     }
 
@@ -45,7 +45,7 @@ export default function Membership() {
             setCount(0)
             await getMemberships();
         } catch (error) {
-            ErrorToast(error.response.data.name)
+            ErrorToast(apiErrorMessage(error))
         }
     }
 
@@ -66,7 +66,7 @@ export default function Membership() {
             setDisableExport(false)
         } catch (error) {
             setDisableExport(false)
-            ErrorToast(error.response.data.name)
+            ErrorToast(apiErrorMessage(error))
         }
     };
 
