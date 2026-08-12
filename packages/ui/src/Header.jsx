@@ -2,16 +2,8 @@
 import React from 'react'
 import { IoSearch } from 'react-icons/io5'
 import Pagination from './Pagination'
+import useBreadcrumb from './useBreadcrumb'
 
-// Shared page header. Rewritten to match the PageLayout template so every page
-// that still uses <Header/> inherits the same clean look without being touched:
-//
-//   ┌ title (+ optional parent breadcrumb)                    · actions ┐
-//   ├ sub-header: search on the left, pagination on the right          ┤ (only when search/pagination)
-//
-// It stays width-fluid and non-sticky so it composes inside whatever container
-// the page already provides. New pages should prefer PageLayout directly; this
-// keeps the ~50 existing pages consistent in one place.
 export default function Header({
   title,
   RightContent,
@@ -26,12 +18,22 @@ export default function Header({
   searchPlaceholder = 'Search',
 }) {
   const hasSubheader = search || pagination
+  const crumbs = useBreadcrumb(parent)
 
   return (
-    <div className='w-full'>
-      <div className='flex items-start justify-between gap-4 flex-wrap pt-1 pb-3'>
+    <div className='sticky top-0 z-20 w-full min-w-0 border-b border-gray-100 bg-[#F5F5F5]/95 backdrop-blur-sm'>
+      <div className='flex items-start justify-between gap-4 flex-wrap pt-3 pb-3'>
         <div className='min-w-0'>
-          {parent ? <p className='text-[11px] text-[#959595] mb-0.5'>{parent}</p> : null}
+          {crumbs.length > 0 && (
+            <nav aria-label='Breadcrumb' className='flex items-center gap-1.5 text-[11px] text-[#959595] mb-1'>
+              {crumbs.map((crumb, i) => (
+                <React.Fragment key={`${crumb}-${i}`}>
+                  {i > 0 && <span className='text-gray-300'>/</span>}
+                  <span className={i === crumbs.length - 1 ? 'text-[#757575] font-medium' : ''}>{crumb}</span>
+                </React.Fragment>
+              ))}
+            </nav>
+          )}
           {title ? (
             <h1 className='text-xl font-bold text-[#1a1a1a] leading-tight capitalize m-0'>{title}</h1>
           ) : null}
@@ -44,7 +46,7 @@ export default function Header({
       </div>
 
       {hasSubheader && (
-        <div className='flex items-center gap-3 flex-wrap border-y border-gray-100 bg-[#fafafa] px-3 py-2.5 rounded-md mb-3'>
+        <div className='flex items-center gap-3 flex-wrap border-t border-gray-100 bg-[#fafafa] px-3 py-2.5 rounded-t-md'>
           {search && (
             <div className='relative flex-1 min-w-[200px] max-w-sm'>
               <IoSearch className='w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#959595]' />

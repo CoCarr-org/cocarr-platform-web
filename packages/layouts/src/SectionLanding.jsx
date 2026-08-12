@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSidebar } from '@cocarr/iam-sdk';
+import { PageLayout } from '@cocarr/ui';
 
 // The index for a grouping path — /dashboard/workspace, /dashboard/finance,
 // /dashboard/platform and the rest.
@@ -54,9 +55,10 @@ export function SectionLanding({ title, description }) {
     || 'Section';
 
   return (
-    <div className='max-w-5xl mx-auto pb-10'>
-      <h1 className='text-2xl font-bold tracking-tight capitalize mt-2 mb-1'>{heading}</h1>
-      {description && <p className='text-sm text-[#757575] mb-6'>{description}</p>}
+    // A section landing page is still a page: same navigation header as
+    // everything else rather than a bare <h1> floating in a container. It was
+    // the last shape in the app with its own idea of what a page title is.
+    <PageLayout title={heading} subtitle={description} maxWidth='max-w-5xl'>
 
       {!ready && (
         <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'>
@@ -88,7 +90,7 @@ export function SectionLanding({ title, description }) {
           ))}
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }
 

@@ -188,7 +188,7 @@ export default function Rides({ initialStatus = '', title = 'Rides' } = {}) {
 
   return (
     <div className='max-w-7xl mx-auto h-full'>
-      <div className='flex justify-between items-stretch'>
+      <div>
         <Header 
           title={'Rides'} 
           RightContent={RightContent} 

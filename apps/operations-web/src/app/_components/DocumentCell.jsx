@@ -1,4 +1,5 @@
 'use client'
+import { Modal } from '@cocarr/ui'
 import React, { useState } from 'react'
 import { photoUrl } from '@cocarr/shared-utils'
 
@@ -24,18 +25,16 @@ export const DocumentImage = ({ src, label }) => {
         View {label}
       </button>
       {open && (
-        <div className='fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6'
-          onClick={() => setOpen(false)}>
-          <div className='bg-white rounded-md p-3 max-w-3xl max-h-full overflow-auto'
-            onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => setOpen(false)} size='lg' label={label} dismissOnBackdrop className='p-3'>
+          <div>
             <div className='flex justify-between items-center mb-2'>
               <p className='text-sm font-semibold'>{label}</p>
               <button onClick={() => setOpen(false)} className='text-sm text-[#757575] px-2'>✕</button>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoUrl(src)} alt={label} className='max-w-full max-h-[75vh] object-contain' />
+            <img src={photoUrl(src)} alt={label} className='max-w-full max-h-[70dvh] object-contain' />
           </div>
-        </div>
+        </Modal>
       )}
     </>
   )
@@ -91,18 +90,16 @@ export const DocumentThumb = ({ src, label }) => {
       </button>
 
       {open && (
-        <div className='fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6'
-          onClick={() => setOpen(false)}>
-          <div className='bg-white rounded-md p-3 max-w-4xl max-h-full overflow-auto'
-            onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => setOpen(false)} size='xl' label={label} dismissOnBackdrop className='p-3'>
+          <div>
             <div className='flex justify-between items-center mb-2'>
               <p className='text-sm font-semibold'>{label}</p>
               <button onClick={() => setOpen(false)} className='text-sm text-[#757575] px-2'>✕</button>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoUrl(src)} alt={label} className='max-w-full max-h-[80vh] object-contain' />
+            <img src={photoUrl(src)} alt={label} className='max-w-full max-h-[70dvh] object-contain' />
           </div>
-        </div>
+        </Modal>
       )}
     </>
   )
