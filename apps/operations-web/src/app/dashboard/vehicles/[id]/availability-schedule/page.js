@@ -1,231 +1,116 @@
 'use client'
-
-import React, { useEffect, useState } from 'react'
-import { toast } from 'react-toastify'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useParams } from 'next/navigation'
-import { ErrorToast, InfoToast } from '@cocarr/notifications'
-import { photoUrl } from '@cocarr/shared-utils'
-import ManageVehicle from './_components/ManageVehicle'
-import { SearchInput } from '@cocarr/ui'
-import { LIMIT } from '@cocarr/shared-utils'
-import { Pagination } from '@cocarr/ui'
+import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { coreApi } from '@cocarr/api-sdk'
-import { Header } from '@cocarr/ui'
-import { createTable, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { Verified } from 'lucide-react'
-import { FiUserCheck } from 'react-icons/fi'
-import { getDateFormat, getDateTimeFormat, getTimeFormat } from '@cocarr/shared-utils'
-import moment from 'moment'
+import { apiErrorMessage } from '@cocarr/notifications'
+import { LIMIT, getDateTimeFormat } from '@cocarr/shared-utils'
+import { Pagination } from '@cocarr/ui'
+import ScheduleTimeline, {
+  STATE_LABEL, STATE_TONE, TimelineLegend, scheduleState,
+} from '../../../availability-schedule/_components/ScheduleTimeline'
+import { EmptyState, Explainer, ListState, Pill } from '@/app/_components/ui'
 
-export default function AvailabilitySchedule() {
+// Vehicle › Availability — this car's windows.
+//
+// IT USED TO SHOW EVERY OTHER CAR'S. The fetch was
+// `GET /admin/schedule?populate=true&offset=…&limit=…` with no `vehicleId`, so
+// on a vehicle detail page it listed the whole platform's schedules under a
+// heading that said "Vehicles". Anyone checking whether THIS car was free read
+// somebody else's calendar. `vehicleId` is a real server-side filter and is
+// sent now.
+//
+// It also carried a full Add/Edit Vehicle popup — a vehicle editor inside an
+// availability tab — whose submit handler posted to `/vehicle` and, on failure,
+// indexed into `error.response.data.error[<first key>]`, which throws inside
+// the catch. Editing a vehicle belongs on the vehicle, not here.
 
-    const {id} = useParams()
-    const [searchText,setSearchText] = useState('')
-    const [vehicles,setVehicles] = useState([])
-    const [showCreate,setShowCreate] = useState({status:false,edit:null})
-    const [sort,setSort] = useState('-createdOn')
-    const navigate = useRouter()
-    const [offset,setOffset] = useState(0);
-    const [count,setCount] = useState(5)
+export default function VehicleAvailability() {
+  const { id } = useParams()
+  const [schedules, setSchedules] = useState([])
+  const [count, setCount] = useState(0)
+  const [offset, setOffset] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-    const [cityFilters,setCityFilters] = useState([])
-    const [routeFilters,setRouteFilters] = useState([])
-    
-
-    const [selectedFilters,setSelectedFilters] = useState({city:'',route:''})
-
-
-    const handleModal = (value) => {
-    navigate.push(`${window.location.pathname}?showManage=${value}`);
-
-    // history.pushState(null, null, window.location.href);
-    };
-
-
-    async function getAvailabilitySchedule(){
-
-        try 
-        {
-            let res = await coreApi().get(`/admin/schedule?populate=true&offset=${offset}&limit=${LIMIT}`)
-            if(res.data) setVehicles(res.data.schedules)
-            setCount(res.data.count)
-        } catch (error) {
-            ErrorToast(error.response.data.error.message)
-        }
+  const load = useCallback(async () => {
+    if (!id) return
+    setLoading(true)
+    try {
+      const res = await coreApi().get('/admin/schedule', {
+        params: { populate: true, offset, limit: LIMIT, vehicleId: id },
+      })
+      setSchedules(res.data?.schedules || [])
+      setCount(res.data?.count || 0)
+      setError('')
+    } catch (err) {
+      setError(apiErrorMessage(err, "Could not load this vehicle's availability."))
+    } finally {
+      setLoading(false)
     }
-    useEffect(()=>
-    {
-        getAvailabilitySchedule();
-    },[offset])
+  }, [id, offset])
 
-    const onSubmit = async(e,data,images)=>
-    {
-        try 
-        {
-            let imageList = []
-            e.preventDefault()
-            images.map((item)=>
-            {
-                imageList.push({src:item.src,isCover:item.isCover ? item.isCover : false})
-            })
-            console.log('images',images)
-            let imageRes
-            let res;
-            if(showCreate.edit)
-            {
-                let updateData = {...data,images:imageList}
-                res = await coreApi().put(`/vehicle/${showCreate.edit}`,updateData) 
-                InfoToast('Vehicle Updated')
-                
-            }
-            else
-            {
-                console.log('images',imageList)
-                res = await coreApi().post(`/vehicle`,{...data,images:imageList})
-                InfoToast('Vehicle Created')
-            }
-            if(res.data)
-            {
-                await getAvailabilitySchedule()
-                setShowCreate({status:false,edit:null})
-            }
-            else toast('error updating retailer')
-        } catch (error) {
-            // console.log(error.response.data.error[0])
-            toast.error(error.response.data.error[Object.keys(error.response.data.error)[0]])
-        }
-    }
-
-
-    const RightContent = ()=>
-    {
-        return <div className='h-full flex items-stretch self-stretch bg-red-500'>
-          <button type='button' className='btn-md-stretched h-full' onClick={()=>setShowCreate({status:true,edit:null})}>Add Schedule</button>
-        </div>
-    }
-
-
-    const columns = [
-        {
-            accessorKey: 'startTime', 
-            header: 'Start Date',
-            cell: ({row}) => (
-                <div>
-                    <p className="font-medium text-sm">{getDateFormat(row.original.startTime)}</p>
-                    <p className="font-medium text-xs text-gray-500">{getTimeFormat(row.original.startTime)}</p>
-                </div>
-            ),
-            size: 150,
-            sticky: 'left'
-        },
-        {
-            accessorKey: 'endTime', 
-            header: 'End Date',
-            cell: ({row}) => (
-                <div>
-                    <p className="font-medium text-sm">{getDateFormat(row.original.endTime)}</p>
-                    <p className="font-medium text-xs text-gray-500">{getTimeFormat(row.original.endTime)}</p>
-                </div>
-            ),
-            size: 120,
-            sticky: 'left'
-        },
-        {
-            accessorKey: 'scheduleBlocks', 
-            header: 'Schedule Blocks',
-            cell: ({row}) => (
-                <div>
-                    <p className="font-medium text-sm">{row.original.scheduleBlocks.length}</p>
-                </div>
-            ),
-            size: 120,
-            sticky: 'left'
-        },
-        {
-            accessorKey: 'status',
-            header: 'Status', 
-            cell: ({row}) => (
-                <div>
-                    <p className={`text-sm font-medium ${row.original.deleted ? 'text-red-500' : moment(row.original.endTime).isBefore(moment()) ? 'text-black' : 'text-green-700'}`}>
-                        {row.original.deleted ? 'Deleted' : moment(row.original.endTime).isBefore(moment()) ? 'Completed' : 'Active'}
-                    </p>
-                </div>
-            ),
-            size: 120
-        }
-    ]
-
-    const table = useReactTable({
-        data: vehicles,
-        columns,
-        enableColumnPinning: true,
-        enableColumnResizing: false,
-        enableSorting: true,
-        getCoreRowModel: getCoreRowModel()
-    })
+  useEffect(() => { load() }, [load])
 
   return (
-    <div className='max-w-7xl w-full'>
-        <Header title={'Vehicles'} RightContent={RightContent} search={true} pagination={true} count={count} offset={offset} setOffset={setOffset} searchText={searchText} setSearchText={setSearchText}/>
-        <div className='block grid-cols-4 gap-4 flex-1 bg-[#f3f3f3] w-full overflow-x-auto' >
-                        <div className='w-full overflow-x-scroll'>
-                            <table className='table-auto overflow-x-scroll'>
-                                <thead>
-                                    {table.getHeaderGroups().map(headerGroup => (
-                                        <tr key={headerGroup.id}>
-                                            {headerGroup.headers.map(header => (
-                                                <td key={header.id} style={{width: header.column.columnDef.size}}>
-                                                    {header.isPlaceholder
-                                                        ? null
-                                                        : flexRender(
-                                                            header.column.columnDef.header,
-                                                            header.getContext()
-                                                        )}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </thead>
-                                <tbody>
-                                    {table.getRowModel().rows.map(row => (
-                                        <tr key={row.id} onClick={()=>navigate.push(`/dashboard/vehicles/${row.original.id}`)}>
-                                            {row.getVisibleCells().map(cell => (
-                                                <td key={cell.id} className="px-4 py-2" style={{width: cell.column.columnDef.size}}>
-                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+    <div className='w-full'>
+      <div className='flex items-center gap-3 flex-wrap mb-4'>
+        <span className='text-xs text-[#959595]'>
+          {loading ? 'Loading…' : `${count} window${count === 1 ? '' : 's'}`}
+        </span>
+        <div className='ml-auto'><Pagination count={count} offset={offset} setOffset={setOffset} /></div>
+      </div>
+
+      <ListState
+        loading={loading}
+        error={error}
+        onRetry={load}
+        isEmpty={schedules.length === 0}
+        empty={(
+          <EmptyState
+            title='No availability windows'
+            message='This car cannot be booked until the host opens a window for it, however it is approved.'
+          />
+        )}
+      >
+        <div className='mb-3'><TimelineLegend /></div>
+
+        <div className='space-y-3'>
+          {schedules.map((s) => {
+            const state = scheduleState(s)
+            const blocks = Array.isArray(s.scheduleBlocks) ? s.scheduleBlocks : []
+            return (
+              <div key={s.id} className='bg-white border border-gray-100 rounded-lg p-4'>
+                <div className='flex items-start justify-between gap-4 flex-wrap mb-3'>
+                  <div>
+                    <div className='flex items-center gap-2'>
+                      <p className='text-sm font-medium text-[#1a1a1a]'>
+                        {getDateTimeFormat(s.startTime)} → {getDateTimeFormat(s.endTime)}
+                      </p>
+                      <Pill tone={STATE_TONE[state]}>{STATE_LABEL[state]}</Pill>
+                    </div>
+                    <p className='text-[11px] text-[#959595] mt-0.5'>
+                      {blocks.length} block{blocks.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                  <Link href={`/dashboard/availability-schedule/${s.id}`}
+                    className='text-xs font-semibold text-[#454545] hover:text-[#151515] shrink-0'>
+                    Open →
+                  </Link>
+                </div>
+                <ScheduleTimeline schedule={s} />
+              </div>
+            )
+          })}
         </div>
-        { showCreate.status ? <ManageVehicle onClose={setShowCreate} onSubmit={onSubmit} edit={showCreate.edit}/> : null}
+
+        <div className='mt-4'>
+          <Explainer>
+            Windows are the host&apos;s availability. Approval and the host&apos;s on/off switch are separate
+            gates — all three must line up before a rider can book.
+          </Explainer>
+        </div>
+      </ListState>
     </div>
   )
-}
-
-
-
-const CarItem = ({data,index})=>
-{
-  return <div className={`col-span-1 shadow-md shadow-gray-200 my-4 translate-y-0 hover:translate-y-1 hover:shadow-none transition-all rounded-md overflow-hidden z-0`} key={index}>
-    <Link href={`/vehicles/${data.vehicleId}`}>
-    <div className={`w-full h-[140px] relative`}>
-        <img src={data.images.length > 0 ? photoUrl(data.images[0].url) : ''}  className='w-full h-full' />
-    </div>
-    <div className='bg-white px-4 py-4'>
-          <div className='pb-3'>
-            <p className='text-sm font-medium capitalize'>{data.brand.name} {data.vehicleName}</p>
-            <p className='text-xs text-[#959595] capitalize mt'>{data.vehicleFuelType} &middot; {data.vehicleSeats} Seater &middot; {data.vehicleYear}</p>
-          </div>
-          <div className='pt-3 border-t border-t-gray-200'>
-            <p className='text-lg font-bold'><span className='text-sm font-medium'>Rs.</span>{data.vehiclePlan[0] ? data.vehiclePlan[0].perHourFee : '0'}<span className='text-sm font-medium'>/hr</span></p>
-            <p className='text-xs text-[#959595] capitalize'>Available from 24 Oct 12:00 Pm</p>
-          </div>
-    </div>
-    </Link>
-  </div>
 }
