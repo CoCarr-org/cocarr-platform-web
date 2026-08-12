@@ -15,11 +15,14 @@ import {
 // WHAT THIS SCREEN CAN HONESTLY SHOW. `GET /host` runs against the hosts table
 // with NO joins (see getAllHosts in hostService) — no user row, no vehicle
 // count, no payout account. So every column here comes off the host record
-// itself. The previous version rendered `rcVerificationId` and `rcVerified` in
-// a "Status" column; both are VEHICLE fields that never appear on a host row,
-// so those two icons were unconditionally grey on every host since the screen
-// was written. They are replaced with the three verification flags the host row
-// genuinely carries.
+// itself, EXCEPT the verification pills: `getAllHosts` now resolves each page's
+// KYC and PAN state from the users' document rows in bulk, because the host
+// table has no truthful copy of it.
+//
+// The previous version rendered `rcVerificationId` and `rcVerified` in a
+// "Status" column; both are VEHICLE fields that never appear on a host row, so
+// those two icons were unconditionally grey on every host since the screen was
+// written.
 //
 // NO CLIENT-SIDE FILTER CHIPS EITHER. The endpoint paginates server-side, so a
 // chip filtering the 25 rows currently loaded would report "3 unverified" out
@@ -44,16 +47,32 @@ const SORTS = [
   { value: 'contactNumber', label: 'Phone number' },
 ]
 
-// Three independent facts, three pills. Collapsing them into one "verified"
-// badge loses the distinction ops acts on: an unverified PHONE blocks the OTP
-// handover at pickup, an unverified KYC blocks payout.
-const VerificationPills = ({ host }) => (
-  <div className='flex items-center gap-1.5 flex-wrap'>
-    <Pill tone={host.kycVerified ? 'good' : 'warn'}>KYC</Pill>
-    <Pill tone={host.contactVerified ? 'good' : 'neutral'}>Phone</Pill>
-    <Pill tone={host.emailVerified ? 'good' : 'neutral'}>Email</Pill>
-  </div>
-)
+// Separate pills, not one "verified" badge — they block different things: KYC
+// and the bank account block PAYOUT, the phone number blocks the pickup OTP
+// handover.
+//
+// KYC AND PAN COME FROM THE USER'S DOCUMENTS, NOT FROM THE HOST ROW.
+//
+// This used to read `host.kycVerified` — a column nothing has ever written, so
+// every host on every page rendered as unverified, including the ones whose
+// user holds a verified Aadhaar. The server now resolves the real state per
+// page (`verification.*`); the host's own kyc* columns are dead.
+//
+// Three tones, not two: `null` means never submitted and is a different problem
+// from `pending`, which means somebody owes a review.
+const DOC_TONE = { verified: 'good', pending: 'warn', rejected: 'bad' }
+
+const VerificationPills = ({ host }) => {
+  const v = host.verification || {}
+  return (
+    <div className='flex items-center gap-1.5 flex-wrap'>
+      <Pill tone={DOC_TONE[v.kycStatus] || 'neutral'}>KYC</Pill>
+      <Pill tone={DOC_TONE[v.panStatus] || 'neutral'}>PAN</Pill>
+      <Pill tone={host.contactVerified ? 'good' : 'neutral'}>Phone</Pill>
+      <Pill tone={host.emailVerified ? 'good' : 'neutral'}>Email</Pill>
+    </div>
+  )
+}
 
 export default function Hosts() {
   const navigate = useRouter()
@@ -128,7 +147,7 @@ export default function Hosts() {
       accessorKey: 'kycVerified',
       id: 'verification',
       header: 'Verification',
-      size: 190,
+      size: 220,
       cell: ({ row }) => <VerificationPills host={row.original} />,
     },
     {
@@ -209,8 +228,9 @@ export default function Hosts() {
           />
         </div>
         <Explainer>
-          KYC, phone and email are the host record&apos;s own verification flags. Payout is blocked until
-          KYC is verified; the pickup OTP handover depends on the phone number.
+          KYC and PAN belong to the PERSON, not the host role — they are the same documents the user
+          profile shows, so verifying once covers riding and hosting both. Payout is blocked until KYC and
+          the bank account are verified; the pickup OTP handover depends on the phone number.
         </Explainer>
       </ListState>
     </PageLayout>
