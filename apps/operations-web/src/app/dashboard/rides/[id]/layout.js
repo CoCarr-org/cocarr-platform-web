@@ -85,7 +85,8 @@ export default function SettingsLayout({children}) {
 
     const onClick = (id)=>
     {
-        router.push(`/rides/${id}`)
+        // Missing the `/dashboard` prefix, so every row click 404'd.
+        router.push(`/dashboard/rides/${id}`)
     }
 
 

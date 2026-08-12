@@ -76,10 +76,21 @@ export default function Vehicles({ extraQuery = null, title = 'Vehicles', showHo
 
   // Cities are reference data and cheap; a failure here must not take the fleet
   // list with it, so the filter simply does not appear.
+  //
+  // `GET /city` answers a BARE ARRAY — `cityService.getAllCities` returns
+  // `City.findAll(...)` straight out, with no `{data, totalCount}` envelope
+  // around it, unlike `/host` and `/admin/vehicle`. Reaching for `res.data.data`
+  // here yields undefined and the filter silently never renders. The envelope
+  // form is tolerated anyway so this does not break if the endpoint is ever
+  // brought in line with the others.
   useEffect(() => {
     let cancelled = false
     coreApi().get('/city')
-      .then((res) => { if (!cancelled) setCities(res.data?.data || []) })
+      .then((res) => {
+        if (cancelled) return
+        const body = res.data
+        setCities(Array.isArray(body) ? body : (body?.data || []))
+      })
       .catch(() => {})
     return () => { cancelled = true }
   }, [])

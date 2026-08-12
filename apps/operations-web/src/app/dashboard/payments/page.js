@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { Header, Pagination, SearchInput } from '@cocarr/ui'
-import { ErrorToast, InfoToast } from '@cocarr/notifications'
+import { ErrorToast, InfoToast, apiErrorMessage } from '@cocarr/notifications'
 import { LIMIT, getValidDateFormat } from '@cocarr/shared-utils'
 import { useRouter } from 'next/navigation'
 import { coreApi } from '@cocarr/api-sdk'
@@ -33,7 +33,7 @@ export default function Payments() {
             setRides(res.data.data)
             setCount(res.data.totalCount)
         } catch (error) {
-            ErrorToast(error.response.data.name)
+            ErrorToast(apiErrorMessage(error))
         }
     }
 
@@ -44,7 +44,8 @@ export default function Payments() {
 
     const onClick = (id)=>
     {
-        navigate.push(`/rides/${id}`)
+        // Missing the `/dashboard` prefix, so every row click 404'd.
+        navigate.push(`/dashboard/rides/${id}`)
     }
 
     const columns = [

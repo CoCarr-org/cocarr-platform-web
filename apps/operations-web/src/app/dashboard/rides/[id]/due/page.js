@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
-import { InfoToast } from '@cocarr/notifications'
+import { InfoToast, apiErrorMessage } from '@cocarr/notifications'
 import { getDateFormat, getTimeFormat } from '@cocarr/shared-utils'
 import { Loader } from '@cocarr/ui'
 import { coreApi } from '@cocarr/api-sdk'
@@ -31,7 +31,7 @@ export default function RideDue() {
             setLoading(false)
         } catch (error) {
             setLoading(false)
-            InfoToast(error.response.data.error.message)
+            InfoToast(apiErrorMessage(error))
         }
     }
 

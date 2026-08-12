@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
-import { InfoToast } from '@cocarr/notifications'
+import { InfoToast, apiErrorMessage } from '@cocarr/notifications'
 import { BOOKING_BOOKED, BOOKING_FINISHED, BOOKING_ONGOING, LIMIT } from '@cocarr/shared-utils'
 import { getDateFormat, getDateTimeFormat, getTimeFormat } from '@cocarr/shared-utils'
 import { photoUrl } from '@cocarr/shared-utils'
@@ -42,7 +42,7 @@ export default function RideInfo() {
             setLoading(false)
         } catch (error) {
             setLoading(false)
-            InfoToast(error.response.data.error.message)
+            InfoToast(apiErrorMessage(error))
         }
     }
 
