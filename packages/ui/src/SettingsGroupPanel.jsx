@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { coreApi } from '@cocarr/api-sdk'
 import { InfoToast, ErrorToast } from '@cocarr/notifications'
-import Header from './Header'
+import PageLayout from './PageLayout'
 
 // Editor for one platform-settings group (General, Business, Payments,
 // Notifications, Storage, Maintenance). Rows are defined server-side in
@@ -44,12 +44,18 @@ export default function SettingsGroupPanel({ group, title, note }) {
   }
 
   return (
-    <div className='max-w-7xl mx-auto'>
-      <Header title={title} RightContent={() => (
+    // Save lives in the navigation header's action slot, so it stays on screen
+    // while you scroll a long settings form — it used to scroll away with the
+    // title, which on these pages means editing a dozen fields and then hunting
+    // for the button.
+    <PageLayout
+      title={title}
+      actions={(
         <button type='button' className='btn-md-disabled' disabled={!dirty || saving} onClick={save}>
           {saving ? 'Saving…' : 'Save Changes'}
         </button>
-      )} />
+      )}
+    >
       {note && <p className='text-xs text-[#757575] px-1 pt-3'>{note}</p>}
 
       {loading && <p className='px-1 py-4 text-sm text-[#757575]'>Loading…</p>}
@@ -81,6 +87,6 @@ export default function SettingsGroupPanel({ group, title, note }) {
           ))}
         </div>
       )}
-    </div>
+    </PageLayout>
   )
 }

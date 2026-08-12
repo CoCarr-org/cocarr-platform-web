@@ -1,5 +1,5 @@
 'use client';
-import { Header } from '@cocarr/ui';
+import { PageLayout } from '@cocarr/ui';
 import ResourceManager from './ResourceManager';
 
 // A whole CRUD screen: page chrome + the resource table.
@@ -19,15 +19,16 @@ export default function ListScreen({
   ...list
 }) {
   return (
-    <div className="mx-auto max-w-7xl">
-      <Header title={title} RightContent={() => null} />
-      {note && <p className="px-1 pt-3 text-xs text-[#757575]">{note}</p>}
+    // Same skeleton as every other screen: navigation header, then the data.
+    // ResourceManager brings its own search/pagination row, so this passes no
+    // `filters` — the band would otherwise be an empty grey stripe.
+    <PageLayout title={title} subtitle={note}>
       <ResourceManager
         api={api}
         permission={permission}
         searchPlaceholder={`Search ${String(title).toLowerCase()}`}
         {...list}
       />
-    </div>
+    </PageLayout>
   );
 }
