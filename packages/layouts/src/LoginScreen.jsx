@@ -91,14 +91,14 @@ export function LoginScreen({ label = '', logoSrc = '/logo.png', redirectTo = '/
             <input
               id='email' type='email' autoComplete='username' value={email} required
               onChange={(e) => setEmail(e.target.value)}
-              className='w-full mb-4 bg-[#151515] border border-[#2a2a2a] rounded-[6px] px-3 py-2 text-[13px] text-[#e3e3e3] focus:outline-none focus:border-[#3a3a3a]'
+              className='w-full mb-4 bg-[#151515] border border-[#2a2a2a] rounded-[6px] px-3 py-2 text-[13px] input-on-dark focus:outline-none focus:border-[#3a3a3a]'
             />
 
             <label htmlFor='password' className='block text-[11px] text-[#959595] mb-1'>Password</label>
             <input
               id='password' type='password' autoComplete='current-password' value={password} required
               onChange={(e) => setPassword(e.target.value)}
-              className='w-full mb-5 bg-[#151515] border border-[#2a2a2a] rounded-[6px] px-3 py-2 text-[13px] text-[#e3e3e3] focus:outline-none focus:border-[#3a3a3a]'
+              className='w-full mb-5 bg-[#151515] border border-[#2a2a2a] rounded-[6px] px-3 py-2 text-[13px] input-on-dark focus:outline-none focus:border-[#3a3a3a]'
             />
 
             <button

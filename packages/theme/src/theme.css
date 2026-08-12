@@ -138,6 +138,26 @@ textarea::placeholder {
   opacity: 1; /* Firefox dims placeholders by default, making them near-invisible */
 }
 
+/* ── Inputs on a DARK panel ────────────────────────────────────────────────
+   The rule above states #151515 because this UI is light. The sign-in screen
+   is the exception: it is a dark card (#151515), so that rule paints the text
+   you are typing in exactly the background colour behind it — invisible, which
+   is the same failure the comment above describes, arriving from the opposite
+   direction.
+
+   A Tailwind text utility on the element does NOT fix it. The global rule ends
+   up in `@layer utilities` while the utility does not, and CASCADE LAYER ORDER
+   BEATS SPECIFICITY — so `text-white` on the input loses to `input {}`. That is
+   why this lives here, next to the rule it has to outrank, rather than as a
+   class on the element: same layer, higher specificity, and it cannot be
+   quietly undone by a utility that looks like it should work. */
+.input-on-dark {
+  color: #fff;
+}
+.input-on-dark::placeholder {
+  color: #6b6b6b;
+}
+
 p{
   @apply tracking-normal
 }
