@@ -15,7 +15,11 @@ import { FiArrowRight } from 'react-icons/fi'
 export default function VehicleInfo() {
 
     const {id} = useParams()
-    const [menu,setMenu] = useState([{url:`/vehicles/${id}/`,label:`Vehicle Information`},{url:`/vehicles/${id}/rides`,label:`Rides`},{url:`/vehicles/${id}/reviews`,label:`Reviews`}])
+    // Verification sits FIRST after the overview: for a pending vehicle it is
+    // the only thing anyone opens this page to do, and burying it behind Rides
+    // and Reviews (both empty for a car that has never been booked) hides the
+    // one action the queue sends you here for.
+    const [menu,setMenu] = useState([{url:`/vehicles/${id}/`,label:`Vehicle Information`},{url:`/vehicles/${id}/review`,label:`Verification`},{url:`/vehicles/${id}/rides`,label:`Rides`},{url:`/vehicles/${id}/reviews`,label:`Reviews`}])
     const [showManage,setShowManage] = useState({type:null,status:false,edit:null})
     const [showApproval,setShowApproval] = useState(false)
     const [vehicleInfo,setVehicleInfo] = useState([])
