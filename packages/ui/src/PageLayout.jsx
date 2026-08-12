@@ -1,5 +1,6 @@
 'use client'
 import React from 'react'
+import useBreadcrumb from './useBreadcrumb'
 
 // Reusable page scaffold so every screen reads as one system instead of a
 // different layout per page:
@@ -38,6 +39,12 @@ export default function PageLayout({
   maxWidth = 'max-w-7xl',
   contentClassName = '',
 }) {
+  // An explicit `breadcrumb` wins; otherwise it is resolved from the nav, so a
+  // page gets the right trail without every caller repeating it — and cannot
+  // disagree with the sidebar when a label changes.
+  const derived = useBreadcrumb()
+  const crumbs = Array.isArray(breadcrumb) && breadcrumb.length > 0 ? breadcrumb : derived
+
   return (
     // `min-w-0` so a wide child (a table, a long unbroken id) cannot stretch
     // this box and push the page past the viewport — the content's own
@@ -47,12 +54,12 @@ export default function PageLayout({
         <div className={`${maxWidth} mx-auto px-6 pt-5 pb-4`}>
           <div className='flex items-start justify-between gap-4 flex-wrap'>
             <div className='min-w-0'>
-              {Array.isArray(breadcrumb) && breadcrumb.length > 0 && (
+              {crumbs.length > 0 && (
                 <nav className='flex items-center gap-1.5 text-[11px] text-[#959595] mb-1'>
-                  {breadcrumb.map((crumb, i) => (
+                  {crumbs.map((crumb, i) => (
                     <React.Fragment key={i}>
                       {i > 0 && <span className='text-gray-300'>/</span>}
-                      <span className={i === breadcrumb.length - 1 ? 'text-[#757575] font-medium' : ''}>
+                      <span className={i === crumbs.length - 1 ? 'text-[#757575] font-medium' : ''}>
                         {crumb}
                       </span>
                     </React.Fragment>

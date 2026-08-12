@@ -2,27 +2,8 @@
 import React from 'react'
 import { IoSearch } from 'react-icons/io5'
 import Pagination from './Pagination'
+import useBreadcrumb from './useBreadcrumb'
 
-// Shared page header. Rewritten to match the PageLayout template so every page
-// that still uses <Header/> inherits the same clean look without being touched:
-//
-//   ┌ title (+ optional parent breadcrumb)                    · actions ┐
-//   ├ sub-header: search on the left, pagination on the right          ┤ (only when search/pagination)
-//
-// It is STICKY, like PageLayout's. The navigation header tells you where you
-// are and the filter header changes what you are looking at — both are useless
-// once scrolled past, and on a long list the fix was to scroll back to the top
-// to change a filter. Fixing it here rather than per page is the point of the
-// component: 22 screens get the behaviour without being touched.
-//
-// It stays width-fluid so it composes inside whatever container the page
-// already provides, and paints an opaque background so rows pass UNDER it
-// rather than showing through. New pages should prefer PageLayout directly.
-//
-// ⚠ Sticky needs this to be a normal block child of the scrolling column. A
-// page that wraps it in `flex justify-between` makes it a flex item and the
-// stickiness silently does nothing — two pages did exactly that and were
-// unwrapped rather than left looking arbitrarily different.
 export default function Header({
   title,
   RightContent,
@@ -37,12 +18,22 @@ export default function Header({
   searchPlaceholder = 'Search',
 }) {
   const hasSubheader = search || pagination
+  const crumbs = useBreadcrumb(parent)
 
   return (
     <div className='sticky top-0 z-20 w-full min-w-0 border-b border-gray-100 bg-[#F5F5F5]/95 backdrop-blur-sm'>
       <div className='flex items-start justify-between gap-4 flex-wrap pt-3 pb-3'>
         <div className='min-w-0'>
-          {parent ? <p className='text-[11px] text-[#959595] mb-0.5'>{parent}</p> : null}
+          {crumbs.length > 0 && (
+            <nav aria-label='Breadcrumb' className='flex items-center gap-1.5 text-[11px] text-[#959595] mb-1'>
+              {crumbs.map((crumb, i) => (
+                <React.Fragment key={`${crumb}-${i}`}>
+                  {i > 0 && <span className='text-gray-300'>/</span>}
+                  <span className={i === crumbs.length - 1 ? 'text-[#757575] font-medium' : ''}>{crumb}</span>
+                </React.Fragment>
+              ))}
+            </nav>
+          )}
           {title ? (
             <h1 className='text-xl font-bold text-[#1a1a1a] leading-tight capitalize m-0'>{title}</h1>
           ) : null}
