@@ -361,6 +361,30 @@ export default function HostOverview() {
                   </span>
                 </div>
                 {sec.reason && <p className='text-xs text-red-600 mt-2'>{sec.reason}</p>}
+                {/* KYC carries the evidence ops is deciding on. A passing OTP
+                    does not verify the section — it is what makes verifying it
+                    reasonable, and the difference is the whole point of asking. */}
+                {sec.evidence && (
+                  <div className='mt-2'>
+                    <p className={`text-xs ${sec.evidence.otpVerified ? 'text-green-700' : 'text-amber-700'}`}>
+                      {sec.evidence.otpVerified
+                        ? 'Aadhaar OTP verified — the holder proved control of the registered mobile.'
+                        : 'No Aadhaar OTP recorded. Verify only if you have established their identity another way.'}
+                    </p>
+                    {sec.evidence.kycNumber && (
+                      <p className='text-xs text-[#454545] mt-1'>
+                        Aadhaar on file: <span className='font-mono'>{sec.evidence.kycNumber}</span>
+                      </p>
+                    )}
+                    {sec.evidence.verifiedNumber && sec.evidence.kycNumber
+                      && sec.evidence.verifiedNumber !== sec.evidence.kycNumber && (
+                      <p className='text-xs text-red-600 mt-1'>
+                        Verified against <span className='font-mono'>{sec.evidence.verifiedNumber}</span>,
+                        which is not the Aadhaar currently on file.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <SectionActions sec={sec} />
               </div>
             ))}
