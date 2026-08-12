@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ErrorToast, InfoToast } from '@cocarr/notifications'
+import { ErrorToast, InfoToast, apiErrorMessage } from '@cocarr/notifications'
 import { LIMIT, photoUrl } from '@cocarr/shared-utils'
 import ManageVehicle from './_components/ManageVehicle'
 import { PageLayout, Pagination, SearchInput } from '@cocarr/ui'
@@ -49,7 +49,10 @@ export default function Vehicles({ extraQuery = '', title = 'Vehicles' } = {}) {
             if(res.data) setVehicles(res.data.vehicles)
             setCount(res.data.totalCount)
         } catch (error) {
-            ErrorToast(error.response.data.error.message)
+            // `data.error` is a plain STRING here, so `.message` was undefined and
+            // the toast rendered empty — a failed load was indistinguishable
+            // from an empty fleet.
+            ErrorToast(apiErrorMessage(error, 'Could not load vehicles.'))
         }
     }
     useEffect(()=>
