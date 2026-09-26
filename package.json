@@ -32,7 +32,7 @@
     "@tailwindcss/postcss": "^4.1.17",
     "@ckeditor/ckeditor5-react": "^9.5.0",
     "@hookform/resolvers": "^5.0.1",
-    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.7",
