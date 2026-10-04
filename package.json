@@ -58,7 +58,7 @@
     "embla-carousel-react": "^8.6.0",
     "firebase": "^11.6.0",
     "lucide-react": "^0.487.0",
-    "moment": "^2.30.1",
+    "moment": "^2.31.0",
     "next": "^15.5.22",
     "rc-slider": "^11.1.8",
     "react": "^19.0.0",
